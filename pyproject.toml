@@ -1,0 +1,15 @@
+[project]
+name = "assessment_chat_bot"
+version = "0.1.0"
+description = "Api para orquestração de agentes de IA"
+authors = [
+    {name = "Matheus Mauricio", email = "lhr3@hotmail.com"},
+]
+dependencies = ["pydantic-settings>=2.11.0", "pydantic>=2.12.0", "sqlalchemy>=2.0.44", "fastapi>=0.119.0", "uvicorn>=0.37.0", "psycopg2-binary>=2.9.11", "openai>=2.6.1", "pydantic-ai>=1.9.1"]
+requires-python = "==3.12.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false

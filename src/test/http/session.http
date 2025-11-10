@@ -1,0 +1,465 @@
+### Variables
+@baseUrl = http://192.168.0.254:8000/api/v1
+@skillId = d30466cb-ba14-48cd-ac27-39e81472c52a
+@sessionId = {{createSession.response.body.id}}
+@session2Id = {{createSession2.response.body.id}}
+
+### Health Check
+GET {{baseUrl}}/
+
+###
+
+# ============================================
+# SETUP - CREATE SKILLS FOR TESTING
+# ============================================
+
+### Create Skill for Sessions
+# @name createSkill
+POST {{baseUrl}}/skills/
+Content-Type: application/json
+
+{
+  "name": "Customer Support",
+  "description": "Skill para atendimento ao cliente",
+  "questions": {
+    "q1": "Como você lida com clientes insatisfeitos?",
+    "q2": "Descreva técnicas de comunicação eficaz",
+    "q3": "Como priorizar múltiplas solicitações?"
+  }
+}
+
+###
+
+### Create Second Skill
+# @name createSkill2
+POST {{baseUrl}}/skills/
+Content-Type: application/json
+
+{
+  "name": "Technical Support",
+  "description": "Skill para suporte técnico",
+  "questions": {
+    "q1": "Como fazer troubleshooting eficiente?",
+    "q2": "Explique processos de diagnóstico"
+  }
+}
+
+###
+
+# ============================================
+# SESSION CRUD OPERATIONS
+# ============================================
+
+### Create Session
+# @name createSession
+POST {{baseUrl}}/sessions/
+Content-Type: application/json
+
+{
+  "skill_id": "d30466cb-ba14-48cd-ac27-39e81472c52a"
+}
+
+###
+
+### Create Second Session
+# @name createSession2
+POST {{baseUrl}}/sessions/
+Content-Type: application/json
+
+{
+  "skill_id": "{{skillId}}"
+}
+
+###
+
+### Create Session with Second Skill
+# @name createSession3
+POST {{baseUrl}}/sessions/
+Content-Type: application/json
+
+{
+  "skill_id": "{{createSkill2.response.body.id}}"
+}
+
+###
+
+### Try Create Session with Non-existent Skill (should return 404)
+POST {{baseUrl}}/sessions/
+Content-Type: application/json
+
+{
+  "skill_id": "00000000-0000-0000-0000-000000000000"
+}
+
+###
+
+### Try Create Session with Inactive Skill (should return 400)
+# First, deactivate the skill
+PATCH {{baseUrl}}/skills/{{skillId}}/deactivate
+
+### Then try to create session
+POST {{baseUrl}}/sessions/
+Content-Type: application/json
+
+{
+  "skill_id": "{{skillId}}"
+}
+
+### Reactivate skill for other tests
+PATCH {{baseUrl}}/skills/{{skillId}}/activate
+
+###
+
+### List All Sessions
+GET {{baseUrl}}/sessions/
+
+###
+
+### List Sessions with Limit
+GET {{baseUrl}}/sessions/?limit=10
+
+###
+
+### List Sessions with Custom Limit
+GET {{baseUrl}}/sessions/?limit=50
+
+###
+
+### Get Session by ID
+GET {{baseUrl}}/sessions/{{sessionId}}
+
+###
+
+### Get Non-existent Session (should return 404)
+GET {{baseUrl}}/sessions/00000000-0000-0000-0000-000000000000
+
+###
+
+### List Sessions by Skill ID
+GET {{baseUrl}}/sessions/skill/{{skillId}}
+
+###
+
+### List Sessions by Skill with Limit
+GET {{baseUrl}}/sessions/skill/{{skillId}}?limit=5
+
+###
+
+### List Sessions by Non-existent Skill (should return 404)
+GET {{baseUrl}}/sessions/skill/00000000-0000-0000-0000-000000000000
+
+###
+
+# ============================================
+# MESSAGE OPERATIONS
+# ============================================
+
+### Add Message to Session
+POST {{baseUrl}}/sessions/{{sessionId}}/messages
+Content-Type: application/json
+
+{
+  "text": "Olá! Gostaria de tirar algumas dúvidas sobre atendimento ao cliente."
+}
+
+###
+
+### Add Second Message
+POST {{baseUrl}}/sessions/{{sessionId}}/messages
+Content-Type: application/json
+
+{
+  "text": "olá"
+}
+
+###
+
+### Add Third Message
+POST {{baseUrl}}/sessions/{{sessionId}}/messages
+Content-Type: application/json
+
+{
+  "text": "Entendi. E quanto tempo devo esperar antes de fazer o follow-up?"
+}
+
+###
+
+### Add Message with Parameters
+POST {{baseUrl}}/sessions/{{sessionId}}/messages?params={"user_id": "12345", "channel": "web"}
+Content-Type: application/json
+
+{
+  "text": "Esta mensagem tem parâmetros adicionais no contexto."
+}
+
+###
+
+### Add Message with Empty Text (should return 400)
+POST {{baseUrl}}/sessions/{{sessionId}}/messages
+Content-Type: application/json
+
+{
+  "text": ""
+}
+
+###
+
+### Add Message with Only Whitespace (should return 400)
+POST {{baseUrl}}/sessions/{{sessionId}}/messages
+Content-Type: application/json
+
+{
+  "text": "   "
+}
+
+###
+
+### Add Message to Non-existent Session (should return 404)
+POST {{baseUrl}}/sessions/00000000-0000-0000-0000-000000000000/messages
+Content-Type: application/json
+
+{
+  "text": "Tentando adicionar a sessão inexistente"
+}
+
+###
+
+### Get All Messages from Session
+GET {{baseUrl}}/sessions/{{sessionId}}/messages
+
+###
+
+### Get Messages from Empty Session
+GET {{baseUrl}}/sessions/{{session2Id}}/messages
+
+###
+
+### Get Message Count
+GET {{baseUrl}}/sessions/{{sessionId}}/messages/count
+
+###
+
+### Get Message Count from Empty Session
+GET {{baseUrl}}/sessions/{{session2Id}}/messages/count
+
+###
+
+### Get Message Count from Non-existent Session (should return 404)
+GET {{baseUrl}}/sessions/00000000-0000-0000-0000-000000000000/messages/count
+
+###
+
+# ============================================
+# SESSION WORKFLOW EXAMPLE
+# ============================================
+
+### Complete Session Flow - Create Session
+# @name workflowSession
+POST {{baseUrl}}/sessions/
+Content-Type: application/json
+
+{
+  "skill_id": "{{skillId}}"
+}
+
+###
+
+### Add Question 1
+POST {{baseUrl}}/sessions/{{workflowSession.response.body.id}}/messages
+Content-Type: application/json
+
+{
+  "text": "Como você lida com clientes insatisfeitos?"
+}
+
+###
+
+### Add Answer 1
+POST {{baseUrl}}/sessions/{{workflowSession.response.body.id}}/messages
+Content-Type: application/json
+
+{
+  "text": "Primeiro, ouço atentamente as preocupações do cliente sem interrompê-lo..."
+}
+
+###
+
+### Add Question 2
+POST {{baseUrl}}/sessions/{{workflowSession.response.body.id}}/messages
+Content-Type: application/json
+
+{
+  "text": "Descreva técnicas de comunicação eficaz"
+}
+
+###
+
+### Add Answer 2
+POST {{baseUrl}}/sessions/{{workflowSession.response.body.id}}/messages
+Content-Type: application/json
+
+{
+  "text": "Utilizo escuta ativa, empatia e comunicação clara e objetiva..."
+}
+
+###
+
+### View Complete Session
+GET {{baseUrl}}/sessions/{{workflowSession.response.body.id}}
+
+###
+
+### View Message Count
+GET {{baseUrl}}/sessions/{{workflowSession.response.body.id}}/messages/count
+
+###
+
+# ============================================
+# SESSION DELETION
+# ============================================
+
+### Delete Session
+DELETE {{baseUrl}}/sessions/{{sessionId}}
+
+###
+
+### Try to Get Deleted Session (should return 404)
+GET {{baseUrl}}/sessions/{{sessionId}}
+
+###
+
+### Try to Add Message to Deleted Session (should return 404)
+POST {{baseUrl}}/sessions/{{sessionId}}/messages
+Content-Type: application/json
+
+{
+  "text": "Tentando adicionar a sessão deletada"
+}
+
+###
+
+### Delete Non-existent Session (should return 404)
+DELETE {{baseUrl}}/sessions/00000000-0000-0000-0000-000000000000
+
+###
+
+# ============================================
+# ERROR CASES
+# ============================================
+
+### Invalid UUID Format
+GET {{baseUrl}}/sessions/invalid-uuid-format
+
+###
+
+### Create Session with Invalid Skill ID Format
+POST {{baseUrl}}/sessions/
+Content-Type: application/json
+
+{
+  "skill_id": "invalid-uuid"
+}
+
+###
+
+### Create Session Missing skill_id
+POST {{baseUrl}}/sessions/
+Content-Type: application/json
+
+{
+  "description": "Missing skill_id"
+}
+
+###
+
+### Add Message Missing text field
+POST {{baseUrl}}/sessions/{{session2Id}}/messages
+Content-Type: application/json
+
+{
+  "params": {"test": "value"}
+}
+
+###
+
+# ============================================
+# BULK OPERATIONS
+# ============================================
+
+### Create Multiple Sessions for Testing
+# @name bulk1
+POST {{baseUrl}}/sessions/
+Content-Type: application/json
+
+{
+  "skill_id": "{{skillId}}"
+}
+
+###
+
+# @name bulk2
+POST {{baseUrl}}/sessions/
+Content-Type: application/json
+
+{
+  "skill_id": "{{skillId}}"
+}
+
+###
+
+# @name bulk3
+POST {{baseUrl}}/sessions/
+Content-Type: application/json
+
+{
+  "skill_id": "{{skillId}}"
+}
+
+###
+
+### Add Messages to Bulk Sessions
+POST {{baseUrl}}/sessions/{{bulk1.response.body.id}}/messages
+Content-Type: application/json
+
+{
+  "text": "Primeira sessão - Mensagem 1"
+}
+
+###
+
+POST {{baseUrl}}/sessions/{{bulk1.response.body.id}}/messages
+Content-Type: application/json
+
+{
+  "text": "Primeira sessão - Mensagem 2"
+}
+
+###
+
+POST {{baseUrl}}/sessions/{{bulk2.response.body.id}}/messages
+Content-Type: application/json
+
+{
+  "text": "Segunda sessão - Mensagem 1"
+}
+
+###
+
+POST {{baseUrl}}/sessions/{{bulk3.response.body.id}}/messages
+Content-Type: application/json
+
+{
+  "text": "Terceira sessão - Mensagem 1"
+}
+
+###
+
+### List All Sessions (should show all created)
+GET {{baseUrl}}/sessions/?limit=100
+
+###
+
+### List Sessions by Skill (should show all for this skill)
+GET {{baseUrl}}/sessions/skill/{{skillId}}?limit=100
+
+###

@@ -1,0 +1,423 @@
+### Variables
+@baseUrl = http://192.168.0.254:8000/api/v1
+@skillId = d30466cb-ba14-48cd-ac27-39e81472c52a
+@skillName = Customer Support
+
+### Health Check
+GET {{baseUrl}}/
+
+###
+
+# ============================================
+# SKILL CRUD OPERATIONS
+# ============================================
+
+### Create Skill
+# @name createSkill
+POST {{baseUrl}}/skills/
+Content-Type: application/json
+
+{
+  "name": "Python Backend 2",
+  "description": "Skill de desenvolvimento backend com Python e FastAPI",
+  "questions": {
+    "rubrics": {
+        "Dados e Inteligência Artificial, Orientação a Serviços e ao Cliente, Solução de Problemas": {
+            "lembrar": [
+                "Qual foi a última vez que você identificou um problema recorrente e como reconheceu o padrão?",
+                "Como seu trabalho influencia a experiência do cliente, interna ou externa?",
+                "Quais dados você costuma acompanhar e o que eles indicam?"
+            ],
+            "compreender": [
+                "Como você explicaria a causa de um problema recorrente no seu time?",
+                "Como eficiência e atendimento se relacionam no seu dia a dia?",
+                "Por que a estruturação de dados é importante para tomar boas decisões?"
+            ],
+            "aplicar": [
+                "Que metodologia você usou para resolver um problema real com o time?",
+                "Que ação prática você implementou para melhorar o atendimento?",
+                "Como você já usou dados para tomar uma decisão importante?"
+            ],
+            "analisar": [
+                "Como você dividiu um problema complexo para entender melhor suas partes?",
+                "Como você detecta e corrige falhas na experiência do cliente?",
+                "Como você transforma dados em insights práticos?"
+            ],
+            "avaliar": [
+                "Como você avaliou diferentes soluções para um problema estratégico?",
+                "Como você mede o impacto de uma melhoria na experiência do cliente?",
+                "Como você valida se uma decisão baseada em dados deu resultado?"
+            ],
+            "criar": [
+                "Qual foi a solução mais inovadora que você já criou para um desafio relevante?",
+                "Que inovação você já criou ou propôs no atendimento ao cliente?",
+                "Você já criou alguma solução baseada em dados ou IA? Como foi?"
+            ]
+        },
+        "Conhecimento de Negócio, Curiosidade, Fluência Digital, Visão de Longo Prazo": {
+            "lembrar": [
+                "Quais tendências você acompanha e por quê?",
+                "Quais ferramentas digitais você usa para facilitar seu trabalho?",
+                "Quais temas você mais busca aprender por conta própria?",
+                "Quais são os blocos essenciais de um modelo de negócio que você conhece?"
+            ],
+            "compreender": [
+                "Como você conecta uma tendência de mercado à estratégia da empresa?",
+                "Como você decide qual ferramenta digital usar em cada situação?",
+                "Por que a curiosidade é importante para seu desenvolvimento?",
+                "Como suas decisões influenciam receita, custo ou margem?"
+            ],
+            "aplicar": [
+                "Você já tomou uma decisão baseada em uma visão de longo prazo? Como?",
+                "Você já implantou alguma ferramenta digital em sua equipe? Qual?",
+                "Que conhecimento novo você aplicou recentemente no trabalho?",
+                "Que decisão recente você tomou com base em análise de negócio?"
+            ],
+            "analisar": [
+                "Como você antecipa possíveis rupturas no seu setor?",
+                "Como você organizou ou otimizou um fluxo digital recentemente?",
+                "Como você conecta conhecimentos de áreas diferentes para inovar?",
+                "Como você avalia se a operação está alinhada com a estratégia de negócio?"
+            ],
+            "avaliar": [
+                "Como você avalia se uma estratégia futura é viável?",
+                "Como você mede a efetividade de uma nova tecnologia implementada?",
+                "Como decide o que vale a pena estudar mais a fundo?",
+                "Como você avalia se uma oportunidade de negócio vale o investimento?"
+            ],
+            "criar": [
+                "Que modelo você já ajudou a criar pensando em sustentabilidade futura?",
+                "Você já desenvolveu alguma solução digital? Como surgiu a ideia?",
+                "Você já estruturou algo para apoiar o aprendizado do time?",
+                "Que tipo de plano ou modelo de negócio você já ajudou a criar?"
+            ]
+        },
+        "Colaboração, Empatia": {
+            "lembrar": [
+                "Quais práticas você considera essenciais para uma comunicação eficaz?",
+                "Como você percebe que alguém está desconfortável numa conversa?"
+            ],
+            "compreender": [
+                "Como estilos diferentes de liderança influenciam a colaboração em equipe?",
+                "Como você explica o papel da empatia no trabalho em equipe?"
+            ],
+            "aplicar": [
+                "Como você contribuiu para melhorar a colaboração no seu time?",
+                "Como você usa a empatia para dar feedback ou resolver conflitos?"
+            ],
+            "analisar": [
+                "Quais padrões você já identificou que dificultavam a colaboração?",
+                "Você já mapeou comportamentos prejudiciais dentro de um time? Como?"
+            ],
+            "avaliar": [
+                "Como você mede se a colaboração está dando certo?",
+                "Como você percebe se a empatia está contribuindo para o clima organizacional?"
+            ],
+            "criar": [
+                "Você já criou alguma estrutura para fortalecer colaboração entre áreas?",
+                "Que iniciativas você já criou para promover inclusão e escuta ativa?"
+            ]
+        },
+        "Autoconhecimento": {
+            "lembrar": [
+                "Quais comportamentos você percebe que se repetem em situações de pressão?"
+            ],
+            "compreender": [
+                "Como você descreveria seu estilo de trabalho e seu impacto no time?"
+            ],
+            "aplicar": [
+                "Quais hábitos você cultiva para manter foco e organização?"
+            ],
+            "analisar": [
+                "Como você percebe desalinhamentos entre o que acredita e como age?"
+            ],
+            "avaliar": [
+                "Como você revisa e adapta seus objetivos pessoais e profissionais?"
+            ],
+            "criar": [
+                "Que estratégias você usa para construir sua identidade profissional?"
+            ]
+        }
+    },
+    "bloom_levels":{
+        "lembrar": {
+            "descricao":"Capacidade de recordar fatos, conceitos e informações básicas aprendidas anteriormente. Envolve identificar, listar, nomear ou reconhecer informações sem a necessidade de interpretação ou aplicação.",
+            "acima": "compreender",
+            "abaixo": "lembrar"
+        },
+        "compreender": {
+            "descricao":"Capacidade de explicar ideias ou conceitos com base na compreensão de seu significado. Inclui resumir, interpretar, comparar e exemplificar informações adquiridas.",
+            "acima": "aplicar",
+            "abaixo": "lembrar"
+        },
+        "aplicar": {
+            "descricao":"Capacidade de usar o conhecimento adquirido em situações reais. Envolve implementar conceitos, técnicas ou habilidades em contextos práticos de trabalho.",
+            "acima": "analisar",
+            "abaixo": "compreender"
+        },
+        "analisar": {
+            "descricao":"Capacidade de dividir informações em partes e entender suas inter-relações. Envolve examinar, categorizar, detectar padrões e identificar causas ou consequências.",
+            "acima": "avaliar",
+            "abaixo": "aplicar"
+        },
+        "avaliar": {
+            "descricao":"Capacidade de fazer julgamentos fundamentados com base em critérios definidos. Inclui analisar alternativas, justificar escolhas e medir resultados.",
+            "acima": "criar",
+            "abaixo": "analisar"
+        },
+        "criar": {
+            "descricao":"Capacidade de gerar novas ideias, produtos ou processos. Envolve planejar, produzir e desenvolver soluções originais a partir de conhecimentos diversos.",
+            "acima": "criar",
+            "abaixo": "avaliar"
+        }
+    }
+  }
+}
+
+###
+
+### Try Create Duplicate Skill (should return 409)
+POST {{baseUrl}}/skills/
+Content-Type: application/json
+
+{
+  "name": "Python Backend",
+  "description": "Tentando criar duplicata",
+  "questions": {
+    "q1": "Teste"
+  }
+}
+
+###
+
+### List All Skills
+GET {{baseUrl}}/skills/
+
+###
+
+### List Skills with Filters
+GET {{baseUrl}}/skills/?active_only=true&limit=50
+
+###
+
+### List Only Active Skills
+GET {{baseUrl}}/skills/?active_only=true
+
+###
+
+### List Skills with Custom Limit
+GET {{baseUrl}}/skills/?limit=10
+
+###
+
+### Get Skill by ID
+GET {{baseUrl}}/skills/{{skillId}}
+
+###
+
+### Get Skill by Name
+GET {{baseUrl}}/skills/name/{{skillName}}
+
+###
+
+### Get Skill by Name (URL encoded)
+GET {{baseUrl}}/skills/name/Python%20Backend
+
+###
+
+### Get Non-existent Skill (should return 404)
+GET {{baseUrl}}/skills/00000000-0000-0000-0000-000000000000
+
+###
+
+### Update Skill
+PUT {{baseUrl}}/skills/{{skillId}}
+Content-Type: application/json
+
+{
+  "name": "Python Backend Advanced",
+  "description": "Skill avançada de desenvolvimento backend com Python, FastAPI e PostgreSQL",
+  "questions": {
+    "q1": "O que é FastAPI e quais suas principais vantagens?",
+    "q2": "Como funciona async/await em Python?",
+    "q3": "Explique o padrão Repository",
+    "q4": "O que são decorators em Python?",
+    "q5": "Como otimizar queries no PostgreSQL?",
+    "q6": "Explique o conceito de migrations"
+  }
+}
+
+###
+
+### Update Skill - Try Duplicate Name (should return 409)
+PUT {{baseUrl}}/skills/{{skillId}}
+Content-Type: application/json
+
+{
+  "name": "Frontend React",
+  "description": "Tentando usar nome já existente",
+  "questions": {
+    "q1": "Teste"
+  }
+}
+
+###
+
+# ============================================
+# SKILL ACTIVATION/DEACTIVATION
+# ============================================
+
+### Deactivate Skill (Soft Delete)
+PATCH {{baseUrl}}/skills/{{skillId}}/deactivate
+
+###
+
+### Verify Skill is Deactivated
+GET {{baseUrl}}/skills/{{skillId}}
+
+###
+
+### List Only Active Skills (should not include deactivated)
+GET {{baseUrl}}/skills/?active_only=true
+
+###
+
+### Activate Skill
+PATCH {{baseUrl}}/skills/{{skillId}}/activate
+
+###
+
+### Verify Skill is Active Again
+GET {{baseUrl}}/skills/{{skillId}}
+
+###
+
+# ============================================
+# SKILL DELETION
+# ============================================
+
+### Delete Skill Permanently (use with caution!)
+DELETE {{baseUrl}}/skills/{{skillId}}
+
+###
+
+### Try to Get Deleted Skill (should return 404)
+GET {{baseUrl}}/skills/{{skillId}}
+
+###
+
+# ============================================
+# ERROR CASES
+# ============================================
+
+### Invalid UUID Format
+GET {{baseUrl}}/skills/invalid-uuid-format
+
+###
+
+### Create Skill with Empty Name
+POST {{baseUrl}}/skills/
+Content-Type: application/json
+
+{
+  "name": "",
+  "description": "Skill com nome vazio",
+  "questions": {}
+}
+
+###
+
+### Create Skill with Missing Fields
+POST {{baseUrl}}/skills/
+Content-Type: application/json
+
+{
+  "name": "Incomplete Skill"
+}
+
+###
+
+### Update Non-existent Skill
+PUT {{baseUrl}}/skills/00000000-0000-0000-0000-000000000000
+Content-Type: application/json
+
+{
+  "name": "Test",
+  "description": "Test",
+  "questions": {}
+}
+
+###
+
+### Activate Non-existent Skill
+PATCH {{baseUrl}}/skills/00000000-0000-0000-0000-000000000000/activate
+
+###
+
+### Deactivate Non-existent Skill
+PATCH {{baseUrl}}/skills/00000000-0000-0000-0000-000000000000/deactivate
+
+###
+
+### Delete Non-existent Skill
+DELETE {{baseUrl}}/skills/00000000-0000-0000-0000-000000000000
+
+###
+
+# ============================================
+# BULK OPERATIONS (for testing)
+# ============================================
+
+### Create Multiple Skills for Testing
+# @name bulkCreate1
+POST {{baseUrl}}/skills/
+Content-Type: application/json
+
+{
+  "name": "DevOps & Cloud",
+  "description": "Skill de DevOps, CI/CD e Cloud Computing",
+  "questions": {
+    "q1": "O que é Docker e containerização?",
+    "q2": "Explique CI/CD",
+    "q3": "Diferenças entre IaaS, PaaS e SaaS"
+  }
+}
+
+###
+
+# @name bulkCreate2
+POST {{baseUrl}}/skills/
+Content-Type: application/json
+
+{
+  "name": "Database Design",
+  "description": "Skill de modelagem e design de banco de dados",
+  "questions": {
+    "q1": "O que é normalização?",
+    "q2": "Quando usar SQL vs NoSQL?",
+    "q3": "Explique índices e performance"
+  }
+}
+
+###
+
+# @name bulkCreate3
+POST {{baseUrl}}/skills/
+Content-Type: application/json
+
+{
+  "name": "API Design",
+  "description": "Skill de design de APIs RESTful",
+  "questions": {
+    "q1": "Princípios REST",
+    "q2": "Versionamento de APIs",
+    "q3": "Autenticação e autorização"
+  }
+}
+
+###
+
+### List All Created Skills
+GET {{baseUrl}}/skills/?limit=100
+
+###
