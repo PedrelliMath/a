@@ -17,8 +17,137 @@ class EvaluationService:
         self.evaluation_repository = evaluation_repository
         self.session_repository = session_repository
         self.skill_repository = skill_repository
+    
+    def _extract_iterations_from_session(self, session):
+        """
+        Constrói a lista de iterations a partir das mensagens da sessão.
+        """
+        iterations = []
+        pending_question = None
+        pending_response = None
+        
+        print(f"\n{'='*80}")
+        print(f"INICIANDO EXTRAÇÃO - Total de mensagens: {len(session.messages)}")
+        print(f"{'='*80}\n")
+        
+        for idx, msg in enumerate(session.messages):
+            print(f"\n--- Mensagem {idx + 1} ---")
+            
+            user_type = msg.get("user_type")
+            text = msg.get("text", "")[:100]
+            params = msg.get("params", {})
+            
+            is_valid = params.get("message_validator", {}).get("is_valid", False)
+            is_greeting = params.get("supervisor", {}).get("action", "") == "greeting"
+            is_closing = params.get("supervisor", {}).get("action", "") == "close"
+            
+            print(f"user_type: {user_type}")
+            print(f"text: {text}...")
+            print(f"is_valid: {is_valid}")
+            print(f"is_greeting: {is_greeting}")
+            print(f"is_closing: {is_closing}")
+            
+            if user_type == "bot" and not is_valid and not is_greeting and not is_closing:
+                print("❌ PULANDO: Mensagem do bot inválida")
+                continue
+            
+            if user_type == "bot":
+                print("🤖 TIPO: BOT")
+                
+                if is_greeting:
+                    print("👋 AÇÃO: GREETING")
+                    pending_question = {
+                        "question": msg.get("text"),
+                        "expected_bloom_level": params.get("new_proficiency_level"),
+                        "macro": params.get("new_specific_skill")
+                    }
+                    print(f"✅ Pergunta pendente criada:")
+                    print(f"   - expected_level: {pending_question['expected_bloom_level']}")
+                    print(f"   - macro: {pending_question['macro']}")
+                
+                elif is_closing:
+                    print("🏁 AÇÃO: CLOSING")
+                    if pending_question and pending_response:
+                        achieved = params.get("skill_evaluator", {}).get("achieved_level")
+                        print(f"✅ ADICIONANDO ÚLTIMA ITERAÇÃO:")
+                        print(f"   - expected: {pending_question['expected_bloom_level']}")
+                        print(f"   - achieved: {achieved}")
+                        
+                        iterations.append({
+                            "question": pending_question["question"],
+                            "response": pending_response,
+                            "expected_bloom_level": pending_question["expected_bloom_level"],
+                            "achieved_bloom_level": achieved,
+                            "macro": pending_question["macro"]
+                        })
+                        print(f"📊 Total de iterações agora: {len(iterations)}")
+                        pending_question = None
+                        pending_response = None
+                    else:
+                        print("⚠️  Não há pergunta/resposta pendente para finalizar")
+                        print(f"   - pending_question existe? {pending_question is not None}")
+                        print(f"   - pending_response existe? {pending_response is not None}")
+                
+                else:
+                    print("❓ AÇÃO: NOVA PERGUNTA")
+                    
+                    if pending_question and pending_response:
+                        achieved = params.get("skill_evaluator", {}).get("achieved_level")
+                        print(f"✅ ADICIONANDO ITERAÇÃO:")
+                        print(f"   - expected: {pending_question['expected_bloom_level']}")
+                        print(f"   - achieved: {achieved}")
+                        
+                        iterations.append({
+                            "question": pending_question["question"],
+                            "response": pending_response,
+                            "expected_bloom_level": pending_question["expected_bloom_level"],
+                            "achieved_bloom_level": achieved,
+                            "macro": pending_question["macro"]
+                        })
+                        print(f"📊 Total de iterações agora: {len(iterations)}")
+                    else:
+                        print("⚠️  Sem pergunta/resposta pendente para adicionar")
+                    
+                    pending_question = {
+                        "question": msg.get("text"),
+                        "expected_bloom_level": params.get("new_proficiency_level"),
+                        "macro": params.get("new_specific_skill")
+                    }
+                    pending_response = None
+                    print(f"✅ Nova pergunta pendente criada:")
+                    print(f"   - expected_level: {pending_question['expected_bloom_level']}")
+                    print(f"   - macro: {pending_question['macro']}")
+            
+            elif user_type == "user":
+                print("👤 TIPO: USER")
+                pending_response = msg.get("text")
+                print(f"✅ Resposta armazenada (primeiros 50 chars): {pending_response[:50]}...")
+            
+            else:
+                print(f"⚠️  Tipo desconhecido: {user_type}")
+            
+            print(f"Estado atual:")
+            print(f"  - pending_question: {'✓' if pending_question else '✗'}")
+            print(f"  - pending_response: {'✓' if pending_response else '✗'}")
+        
+        print(f"\n{'='*80}")
+        print(f"EXTRAÇÃO FINALIZADA")
+        print(f"Total de iterações extraídas: {len(iterations)}")
+        print(f"{'='*80}\n")
+        
+        if iterations:
+            print("📋 RESUMO DAS ITERAÇÕES:")
+            for i, it in enumerate(iterations, 1):
+                print(f"\nIteração {i}:")
+                print(f"  - Pergunta: {it['question'][:80]}...")
+                print(f"  - Resposta: {it['response'][:80]}...")
+                print(f"  - Expected: {it['expected_bloom_level']}")
+                print(f"  - Achieved: {it['achieved_bloom_level']}")
+                print(f"  - Macro: {it['macro']}")
+        
+        return iterations
 
-    def create_evaluation(self, evaluation_input: EvaluationInput) -> EvaluationOutput:
+    def create_evaluation(self, session_id) -> EvaluationOutput:
         """
         Cria uma nova avaliação vinculada a uma sessão.
         
@@ -33,36 +162,30 @@ class EvaluationService:
             HTTPException: 409 se já existe uma avaliação para esta sessão
             HTTPException: 500 para outros erros
         """
-        # Converte string para UUID
-        try:
-            session_uuid = UUID(evaluation_input.session_id)
-        except (ValueError, AttributeError):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"ID de sessão inválido: '{evaluation_input.session_id}'"
-            )
         
         # Verifica se a sessão existe
-        session = self.session_repository.get_by_id(session_uuid)
+        session = self.session_repository.get_by_id(session_id)
         
         if not session:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Sessão com ID '{evaluation_input.session_id}' não encontrada"
+                detail=f"Sessão com ID '{session_id}' não encontrada"
             )
         
         # Verifica se já existe uma avaliação para esta sessão
-        existing_evaluation = self.evaluation_repository.get_by_session_id(session_uuid)
+        existing_evaluation = self.evaluation_repository.get_by_session_id(session.id)
         
         if existing_evaluation:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Já existe uma avaliação para a sessão '{evaluation_input.session_id}'"
+                detail=f"Já existe uma avaliação para a sessão '{session.id}'"
             )
+
+        iterations = self._extract_iterations_from_session(session)
         
         try:
-            evaluation = self.evaluation_repository.create(evaluation_input)
-            return evaluation.to_output()
+            evaluation = self.evaluation_repository.create(session, iterations)
+            return evaluation.to_dict()
             
         except Exception as e:
             raise HTTPException(

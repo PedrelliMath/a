@@ -79,3 +79,16 @@ def get_evaluation_by_session_id(
     service: EvaluationService = Depends(get_evaluation_service_dep)
 ):
     return service.get_evaluation_by_session_id(session_id)
+
+@router.post(
+    "/session/{session_id}",
+    status_code=status.HTTP_201_CREATED,
+    #response_model=EvaluationOutput,
+    summary="Cria uma Avaliação a partir de uma sessão",
+    description="Gera a avaliação baseada nas mensagens validadas da sessão."
+)
+def create_evaluation_from_session(
+    session_id: UUID,
+    service: EvaluationService = Depends(get_evaluation_service_dep)
+):
+    return service.create_evaluation(session_id)

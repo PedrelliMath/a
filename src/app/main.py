@@ -10,6 +10,7 @@ from app.routers import skill, session, evaluation
 
 from app.config import settings
 from app.database.db import engine, Base
+
 from app.logger import get_log
 
 

@@ -6,6 +6,7 @@ from app.database.db import Base
 from uuid import uuid4, UUID
 from datetime import datetime
 from typing import List
+import json
 
 from typing import TYPE_CHECKING
 

@@ -3,13 +3,19 @@ from app.models.evaluation import Evaluation, EvaluationInput, EvaluationOutput
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
+import json
 
 class EvaluationRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def create(self, evaluation_input: EvaluationInput) -> Evaluation:        
-        evaluation = Evaluation(session_id=evaluation_input.session_id, iterations={})
+    def create(self, session, iterations) -> Evaluation:        
+        evaluation = Evaluation(
+            session_id=session.id,
+            user_id=str(session.user_id),  
+            skill_id=session.skill_id,
+            iterations=iterations
+        )
         self.db.add(evaluation)
         self.db.commit()
         self.db.refresh(evaluation)

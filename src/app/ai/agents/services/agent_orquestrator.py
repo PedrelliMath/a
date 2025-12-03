@@ -643,6 +643,8 @@ class AgentOrquestrator:
         logger.info("Regenerando pergunta")
         
         regeneration_context = {
+            "bot_message":self.context_in.message_history[-2]['text'],
+            "user_response":self.context_in.message_history[-1]['text'],
             "message_history": self.context_in.message_history,
             "current_specific_skill": self.context_running.new_specific_skill,
             "current_proficiency_level": self.context_running.new_proficiency_level,
