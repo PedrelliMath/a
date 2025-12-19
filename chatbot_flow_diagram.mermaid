@@ -1,0 +1,56 @@
+graph TD
+    Start([Início: get_response]) --> InitAgents[Inicializar Agentes]
+    InitAgents --> LoadContext[Carregar Contexto da Session]
+    LoadContext --> IsGreeting{É primeira<br/>mensagem?}
+    
+    IsGreeting -->|Sim| Greeting[Agente Supervisor:<br/>Gerar Saudação]
+    Greeting --> GenFirstQ[Agente Question Generator:<br/>Gerar Primeira Pergunta]
+    GenFirstQ --> EndGreeting([Retornar Saudação + Pergunta])
+    
+    IsGreeting -->|Não| ValidateMsg[PASSO 1:<br/>Agente Message Validator:<br/>Validar Mensagem]
+    
+    ValidateMsg --> IsValid{Mensagem<br/>válida?}
+    
+    IsValid -->|Não| RegenQuestion[Agente Question Generator:<br/>Regenerar Pergunta]
+    RegenQuestion --> SupervisorRetype[Agente Supervisor:<br/>Feedback de Validação]
+    SupervisorRetype --> EndInvalid([Retornar Pergunta regerada])
+    
+    IsValid -->|Sim| EvalResponse[PASSO 2:<br/>Agente Skill Evaluator:<br/>Avaliar Resposta]
+    EvalResponse --> UpdateProficiency[Atualizar Proficiency Level<br/>classificação: -1, 0, +1]
+    
+    UpdateProficiency --> UpdateProgress[PASSO 3:<br/>Progress Tracker:<br/>Verificar Progresso]
+    UpdateProgress --> CountMessages[Contar Mensagens<br/>da Macro habilidade Atual]
+    
+    CountMessages --> ShouldChangeSkill{Tem 2+<br/>mensagens?}
+    
+    ShouldChangeSkill -->|Não| ContinueSame[Manter Macro habilidade Atual]
+    ContinueSame --> GenNewQ
+    
+    ShouldChangeSkill -->|Sim| HasNextSkill{Existe<br/>próxima macro ?}
+    
+    HasNextSkill -->|Não| CloseChat[Agente Supervisor:<br/>Encerrar Conversa]
+    CloseChat --> EndClose([Retornar Mensagem de Encerramento])
+    
+    HasNextSkill -->|Sim| ChangeSkill[Mudar para Próxima Skill<br/>Reset nivel de proficiência = 'analisar']
+    ChangeSkill --> GenNewQ[PASSO 4:<br/>Agente Question Generator:<br/>Gerar Nova Pergunta]
+    
+    GenNewQ --> EndSuccess([Retornar Nova Pergunta])
+    
+    style Start fill:#2d5016,stroke:#1a3009,stroke-width:3px,color:#fff
+    style EndGreeting fill:#2d5016,stroke:#1a3009,stroke-width:3px,color:#fff
+    style EndInvalid fill:#8b1a1a,stroke:#5c0000,stroke-width:3px,color:#fff
+    style EndSuccess fill:#2d5016,stroke:#1a3009,stroke-width:3px,color:#fff
+    style EndClose fill:#1e3a8a,stroke:#0f1f5c,stroke-width:3px,color:#fff
+    
+    style ValidateMsg fill:#d97706,stroke:#92400e,stroke-width:2px,color:#fff
+    style EvalResponse fill:#d97706,stroke:#92400e,stroke-width:2px,color:#fff
+    style UpdateProgress fill:#d97706,stroke:#92400e,stroke-width:2px,color:#fff
+    style GenNewQ fill:#d97706,stroke:#92400e,stroke-width:2px,color:#fff
+    style Greeting fill:#d97706,stroke:#92400e,stroke-width:2px,color:#fff
+    style SupervisorRetype fill:#d97706,stroke:#92400e,stroke-width:2px,color:#fff
+    style CloseChat fill:#d97706,stroke:#92400e,stroke-width:2px,color:#fff
+    
+    style IsGreeting fill:#1e40af,stroke:#1e3a8a,stroke-width:2px,color:#fff
+    style IsValid fill:#1e40af,stroke:#1e3a8a,stroke-width:2px,color:#fff
+    style ShouldChangeSkill fill:#1e40af,stroke:#1e3a8a,stroke-width:2px,color:#fff
+    style HasNextSkill fill:#1e40af,stroke:#1e3a8a,stroke-width:2px,color:#fff

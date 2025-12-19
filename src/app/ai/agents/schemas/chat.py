@@ -10,9 +10,20 @@ class ChatContextIn():
     current_proficiency_level: str
     current_question_set: str
     current_specific_skill: str
-    message_history: dict
+    message_history: list[dict]
     rubrics: dict
     bloom_levels: dict
+
+    def get_message_history(self, num_messages: int | None = None):
+        if num_messages is not None and num_messages <= len(self.message_history):
+            messages = self.message_history[:num_messages]
+        else:
+            messages = self.message_history
+
+        return "\n".join(
+            f'\n{msg["user_type"]}: {msg["text"]}'
+            for msg in messages
+        )
 
 @dataclass(frozen=True)
 class ChatContextOut():

@@ -93,6 +93,7 @@ class Evaluation(Base):
     def to_dict(self):
         return {
             "id":str(self.id),
+            "session_id":str(self.session_id),
             "user_id":self.user_id,
             "skill_id":str(self.skill_id),
             "iterations":self.iterations

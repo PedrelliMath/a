@@ -26,7 +26,7 @@ def get_evaluation_service_dep(
 @router.get(
     "",
     status_code=status.HTTP_200_OK,
-    response_model=list[EvaluationOutput],
+    #response_model=list[EvaluationOutput],
     summary="Lista todas as Avaliações",
     description="Lista todas as Avaliações registradas ordenada pela mais recente"
 )
@@ -38,7 +38,7 @@ def get_all_evaluations(
 @router.get(
     "/{evaluation_id}",
     status_code=status.HTTP_200_OK,
-    response_model=EvaluationOutput,
+    #response_model=EvaluationOutput,
     summary="Lista uma Avaliação pelo ID",
     description="Lista uma Avaliação pelo ID caso exista"
 )
@@ -51,7 +51,7 @@ def get_evaluation_by_session_id(
 @router.get(
     "/skill/{skill_id}",
     status_code=status.HTTP_200_OK,
-    response_model=EvaluationOutput,
+    #response_model=EvaluationOutput,
     summary="Lista Avaliações pelo ID da skill",
     description="Lista todas as Avaliações pelo ID da skill de forma ordenada"
 )
@@ -70,7 +70,7 @@ def get_evaluation_by_skill_id(
 @router.get(
     "/session/{session_id}",
     status_code=status.HTTP_200_OK,
-    response_model=EvaluationOutput,
+    #response_model=EvaluationOutput,
     summary="Lista uma Avaliação pelo ID da sessão",
     description="Lista uma Avaliação pelo ID da sessão caso esteja finalizada"
 )

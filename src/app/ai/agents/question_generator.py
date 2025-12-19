@@ -48,8 +48,7 @@ class AgentQuestionGenerator:
         final_prompt = self.regeneration_prompt.format(
             past_question=context['bot_message'],
             past_answer=context['user_response'],
-            answer_validator_feedback=context['params']['agents_params']
-            ['agent_question_validator']['feedback'],
+            answer_validator_feedback=context['validator_feedback']
         )
         logger.info(f"run_regeneration final_prompt:\n{final_prompt}")
         return await self.runner.run(user_prompt=final_prompt)

@@ -234,7 +234,7 @@ class EvaluationService:
                 detail=f"Avaliação com ID '{evaluation_id}' não encontrada"
             )
         
-        return evaluation.to_output()
+        return evaluation.to_dict()
 
     def get_evaluation_by_session_id(self, session_id: UUID) -> EvaluationOutput:
         """
@@ -267,7 +267,7 @@ class EvaluationService:
                 detail=f"Nenhuma avaliação encontrada para a sessão '{session_id}'"
             )
         
-        return evaluation.to_output()
+        return evaluation.to_dict()
     
     def list_evaluations_by_skill(self, skill_id: UUID, limit: int = 100) -> list[EvaluationOutput]:
         """

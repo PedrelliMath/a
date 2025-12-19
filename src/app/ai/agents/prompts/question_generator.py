@@ -33,6 +33,7 @@ system_prompt_regeneration = """
     no feedback técnico do avaliador.
     Evite:
 
+    Realizar saudações 
     Repetir a pergunta original sem ajustes.
     Usar linguagem excessivamente complexa ou genérica.
     Formular perguntas que desviem do tema original.

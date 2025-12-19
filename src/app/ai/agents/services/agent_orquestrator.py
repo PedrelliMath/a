@@ -249,8 +249,8 @@ class AgentOrquestrator:
 
         # No greeting, não há pergunta/resposta anterior
         if not is_greeting and len(message_history) >= 2:
-            ai_message = message_history[-2].get('content', '')
-            user_response = message_history[-1].get('content', '')
+            ai_message = message_history[-2].get('text', '')
+            user_response = message_history[-1].get('text', '')
         else:
             ai_message = ""
             user_response = ""
@@ -373,14 +373,29 @@ class AgentOrquestrator:
         return current_proficiency_level, current_specific_skill
 
     def _count_messages_for_skill(self, messages: list, specific_skill: str) -> int:
-        """Conta quantas mensagens do usuário existem para uma skill específica"""
+        """Conta quantas mensagens do bot existem para uma skill específica,
+        incluindo a pergunta inicial do supervisor.
+        """
         count = 0
+
         for msg in messages:
-            # Contar apenas mensagens do bot que têm a skill
-            if msg.get("user_type") == "bot":
-                params = msg.get("params") or {}
-                if params.get("new_specific_skill") == specific_skill:
-                    count += 1
+            if msg.get("user_type") != "bot":
+                continue
+
+            params = msg.get("params") or {}
+
+            is_valid_skill_question = (
+                params.get("new_specific_skill") == specific_skill
+                and params.get("message_validator", {}).get("is_valid")
+            )
+
+            is_supervisor_greeting = (
+                params.get("supervisor", {})
+                    .get("action", {}) == "greeting"
+            )
+
+            if is_valid_skill_question or is_supervisor_greeting:
+                count += 1
 
         return count
 
@@ -442,15 +457,35 @@ class AgentOrquestrator:
         # PASSO 4: Gerar nova pergunta
         logger.info("PASSO 4: Gerando nova pergunta")
         new_question = await self._generate_question()
+
+        # PASSO 5: Entrega a pergunta para o supervisor
+        logger.info("PASSO 5: Gerando resposta  do supervisor")
+        supervisor_message = await self._generate_supervisor_response(new_question)
         
         # Adicionar proficiency e skill aos params
         self.agents_params["new_proficiency_level"] = self.context_running.new_proficiency_level
         self.agents_params["new_specific_skill"] = self.context_running.new_specific_skill
 
         return ChatContextOut(
-            supervisor_message=new_question,
+            supervisor_message=supervisor_message,
             params=self.agents_params
         )
+    
+    async def _generate_supervisor_response(self, new_question: str):
+        """Gera a resposta do supervisor para retornar ao usuario"""
+        end_context = {
+            "message_history":self.context_in.get_message_history(4),
+            "current_subject":self.context_in.current_specific_skill,
+            "generated_question":new_question
+        }
+
+        result = await self.agent_supervisor.run_end(end_context)
+
+        self.agents_params["supervisor"] = {
+            "action":"end"
+        }
+
+        return result.output.message
 
     async def _validate_message(self, user_message: str) -> tuple[bool, str]:
         """Valida se a mensagem do usuário está adequada"""
@@ -613,7 +648,7 @@ class AgentOrquestrator:
         logger.info("Gerando nova pergunta para o usuario")
         
         generation_context = {
-            "message_history": self.context_in.message_history,
+            "message_history": self.context_in.get_message_history(),
             "current_specific_skill": self.context_running.new_specific_skill,
             "current_proficiency_level": self.context_running.new_proficiency_level,
             "current_question_set": self.current_question_set,
@@ -649,6 +684,8 @@ class AgentOrquestrator:
             "current_specific_skill": self.context_running.new_specific_skill,
             "current_proficiency_level": self.context_running.new_proficiency_level,
             "current_question_set": self.current_question_set,
+            "validator_feedback":self.agents_params["message_validator"]["feedback"],
+            "message_history":self.context_in.get_message_history(2),
             "user_id": self.context_in.session.user_id,
             "skill": self.context_in.session.skill,
         }
@@ -681,7 +718,7 @@ class AgentOrquestrator:
         
         # PASSO 2: Supervisor adiciona feedback explicando o problema
         retype_context = {
-            "message_history": self.context_in.message_history,
+            "message_history": self.context_in.get_message_history(),
             "validation_feedback": validation_feedback,
         }
 
@@ -706,7 +743,7 @@ class AgentOrquestrator:
         logger.info("Encerrando o chat")
 
         supervisor_context = {
-            "message_history": self.context_in.message_history
+            "message_history": self.context_in.get_message_history()
         }
         
         result = await self.agent_supervisor.run_close(supervisor_context)

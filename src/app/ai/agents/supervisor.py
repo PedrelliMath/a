@@ -1,6 +1,10 @@
 from pydantic_ai import Agent
 from pydantic import BaseModel, Field
 
+from app.logger import get_log
+
+logger = get_log(__name__)
+
 class AgentSupervisorResponse(BaseModel):
     message: str = Field(description="mensagem do agente supervisor")
 
@@ -26,11 +30,13 @@ class AgentSupervisor:
 
     async def run_end(self, end_context: dict):
         final_prompt = self.message_prompt.format(
-            message_history=state.get_message_history(),
-            subjects=state.skill.subjects,
-            current_subject=state.current_subject,
-            generated_question=state.generated_question,
+            message_history=end_context["message_history"],
+            current_subject=end_context["current_subject"],
+            generated_question=end_context["generated_question"],
         )
+
+        logger.info(F"PROMPT SUPERVISOR: {final_prompt}")
+
         return await self.runner.run(user_prompt=final_prompt)
 
     async def run_retype(self, retype_context: dict):
