@@ -175,8 +175,8 @@ model_config_dict = {
 
 class SkillInput(BaseModel):
     """Schema de entrada para criar/atualizar skill"""
-    name: str = Field(examples=["Python"])
-    description: str = Field(examples=["Avaliar python"])
+    name: str = Field(examples=["Liderença"])
+    description: str = Field(examples=["Avaliar liderança"])
     questions: dict = Field(
         examples=[example_questions_dict]
     )

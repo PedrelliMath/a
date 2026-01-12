@@ -2,6 +2,8 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from contextlib import asynccontextmanager
@@ -44,6 +46,7 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
+app.mount("/public", StaticFiles(directory="public", html=True), name="public")
 
 app.add_middleware(
     CORSMiddleware,
@@ -101,6 +104,9 @@ async def health_check():
         "redoc": "/redoc"
     }
 
+@app.get("/chat")
+async def chat_bot_frontend():
+    return FileResponse("public/index.html")
 
 app.include_router(
     skill.router,

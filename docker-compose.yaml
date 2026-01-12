@@ -15,7 +15,6 @@ services:
       - "8000:8000"
     networks:
       - chatbot
-      - postgres-network
     
   postgres:
     profiles: ['default']
@@ -29,7 +28,7 @@ services:
     ports:
       - "5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -37,7 +36,6 @@ services:
       retries: 5
     networks:
       - chatbot
-      - postgres-network
       
 volumes:
   postgres_data:
@@ -46,5 +44,3 @@ networks:
   chatbot:
     driver: bridge
     name: chatbot
-  postgres-network:
-    external: true
