@@ -12,6 +12,7 @@ from app.routers import skill, session, evaluation
 
 from app.config import settings
 from app.database.db import engine, Base
+from app.openapi_keycloak import init_custom_open_api
 
 from app.logger import get_log
 
@@ -43,8 +44,17 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.json",
+    swagger_ui_init_oauth={
+        "clientId": "swagger",
+        "appName": "Assessment API - Swagger UI",
+        "usePkceWithAuthorizationCodeGrant": True, 
+        "scopes": "openid profile email",    
+    }
 )
+
+app.openapi_schema = None
+app.openapi = init_custom_open_api(app)
 
 app.mount("/public", StaticFiles(directory="public", html=True), name="public")
 

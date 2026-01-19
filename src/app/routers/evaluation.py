@@ -6,11 +6,14 @@ from app.repository.evaluation import get_evaluation_repository
 from app.repository.session import get_session_repository
 from app.repository.skill import get_skill_repository
 from app.database.db import get_db
+from app.auth.auth import get_current_user, oauth2_scheme
+from app.models.current_user import CurrentUser
 from uuid import UUID
 
 router = APIRouter(
     prefix="/evaluations",
-    tags=["Evaluations"]
+    tags=["Evaluations"],
+    dependencies=[Depends(oauth2_scheme)]
 )
 
 def get_evaluation_service_dep(
@@ -31,9 +34,10 @@ def get_evaluation_service_dep(
     description="Lista todas as Avaliações registradas ordenada pela mais recente"
 )
 def get_all_evaluations(
-    service: EvaluationService = Depends(get_evaluation_service_dep)
+    service: EvaluationService = Depends(get_evaluation_service_dep),
+    current_user: CurrentUser = Depends(get_current_user)
 ):
-    return service.get_evaluations()
+    return service.get_evaluations(current_user)
 
 @router.get(
     "/{evaluation_id}",
@@ -44,9 +48,10 @@ def get_all_evaluations(
 )
 def get_evaluation_by_session_id(
     evaluation_id: UUID,
-    service: EvaluationService = Depends(get_evaluation_service_dep)
+    service: EvaluationService = Depends(get_evaluation_service_dep),
+    current_user: CurrentUser = Depends(get_current_user)
 ):
-    return service.get_evaluation_by_id(evaluation_id)
+    return service.get_evaluation_by_id(current_user, evaluation_id)
 
 @router.get(
     "/skill/{skill_id}",
@@ -63,9 +68,10 @@ def get_evaluation_by_skill_id(
         le=1000, 
         description="Número máximo de avaliações a retornar"
     ),
-    service: EvaluationService = Depends(get_evaluation_service_dep)
+    service: EvaluationService = Depends(get_evaluation_service_dep),
+    current_user: CurrentUser = Depends(get_current_user)
 ):
-    return service.list_evaluations_by_skill(skill_id, limit)
+    return service.list_evaluations_by_skill(current_user, skill_id, limit)
 
 @router.get(
     "/session/{session_id}",
@@ -76,9 +82,10 @@ def get_evaluation_by_skill_id(
 )
 def get_evaluation_by_session_id(
     session_id: UUID,
-    service: EvaluationService = Depends(get_evaluation_service_dep)
+    service: EvaluationService = Depends(get_evaluation_service_dep),
+    current_user: CurrentUser = Depends(get_current_user)
 ):
-    return service.get_evaluation_by_session_id(session_id)
+    return service.get_evaluation_by_session_id(current_user, session_id)
 
 @router.post(
     "/session/{session_id}",
@@ -89,6 +96,7 @@ def get_evaluation_by_session_id(
 )
 def create_evaluation_from_session(
     session_id: UUID,
-    service: EvaluationService = Depends(get_evaluation_service_dep)
+    service: EvaluationService = Depends(get_evaluation_service_dep),
+    current_user: CurrentUser = Depends(get_current_user)
 ):
-    return service.create_evaluation(session_id)
+    return service.create_evaluation(current_user, session_id)

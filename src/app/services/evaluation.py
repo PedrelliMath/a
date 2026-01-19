@@ -5,7 +5,8 @@ from app.repository.session import SessionRepository
 from app.repository.skill import SkillRepository
 from uuid import UUID
 from typing import Optional
-
+from app.models.current_user import CurrentUser
+from app.models.session import Session
 
 class EvaluationService:
     def __init__(
@@ -17,6 +18,10 @@ class EvaluationService:
         self.evaluation_repository = evaluation_repository
         self.session_repository = session_repository
         self.skill_repository = skill_repository
+    
+    def has_owned_resource(self, session: Session, current_user: CurrentUser):
+        if session.user_id != current_user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     
     def _extract_iterations_from_session(self, session):
         """
@@ -147,7 +152,7 @@ class EvaluationService:
         
         return iterations
 
-    def create_evaluation(self, session_id) -> EvaluationOutput:
+    def create_evaluation(self, CurrentUser: CurrentUser, session_id) -> EvaluationOutput:
         """
         Cria uma nova avaliação vinculada a uma sessão.
         
@@ -171,6 +176,8 @@ class EvaluationService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Sessão com ID '{session_id}' não encontrada"
             )
+
+        self.has_owned_resource(session, current_user)
         
         # Verifica se já existe uma avaliação para esta sessão
         existing_evaluation = self.evaluation_repository.get_by_session_id(session.id)
@@ -193,7 +200,7 @@ class EvaluationService:
                 detail=f"Erro ao criar avaliação: {str(e)}"
             )
 
-    def get_evaluations(self) -> list[EvaluationOutput]:
+    def get_evaluations(self, current_user: CurrentUser) -> list[EvaluationOutput]:
         """
         Busca todas as avaliações.
             
@@ -203,7 +210,7 @@ class EvaluationService:
         Raises:
             HTTPException: 404 se não houver avaliações
         """
-        evaluations = self.evaluation_repository.get_all()
+        evaluations = self.evaluation_repository.get_all(current_user.id)
         
         if not evaluations:
             raise HTTPException(
@@ -213,7 +220,7 @@ class EvaluationService:
         
         return [evaluation.to_dict() for evaluation in evaluations]
 
-    def get_evaluation_by_id(self, evaluation_id: UUID) -> EvaluationOutput:
+    def get_evaluation_by_id(self, current_user: CurrentUser, evaluation_id: UUID) -> EvaluationOutput:
         """
         Busca uma avaliação por ID.
         
@@ -233,10 +240,12 @@ class EvaluationService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Avaliação com ID '{evaluation_id}' não encontrada"
             )
+
+        self.has_owned_resource(evaluation.session, current_user)
         
         return evaluation.to_dict()
 
-    def get_evaluation_by_session_id(self, session_id: UUID) -> EvaluationOutput:
+    def get_evaluation_by_session_id(self, current_user: CurrentUser, session_id: UUID) -> EvaluationOutput:
         """
         Busca uma avaliação pelo ID da sessão.
         
@@ -252,13 +261,15 @@ class EvaluationService:
         """
         # Verifica se a sessão existe
         session = self.session_repository.get_by_id(session_id)
-        
+
         if not session:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Sessão com ID '{session_id}' não encontrada"
             )
         
+        self.has_owned_resource(session, current_user)
+
         evaluation = self.evaluation_repository.get_by_session_id(session_id)
         
         if not evaluation:
@@ -269,7 +280,7 @@ class EvaluationService:
         
         return evaluation.to_dict()
     
-    def list_evaluations_by_skill(self, skill_id: UUID, limit: int = 100) -> list[EvaluationOutput]:
+    def list_evaluations_by_skill(self, current_user: CurrentUser, skill_id: UUID, limit: int = 100) -> list[EvaluationOutput]:
         """
         Lista todas as avaliações de uma skill específica.
         
@@ -283,7 +294,7 @@ class EvaluationService:
         Raises:
             HTTPException: 404 se a skill não existir
         """
-        skill = self.skill_repository.get_by_id(skill_id)
+        skill = self.skill_repository.get_all(current_user.id, skill_id=skill_id)
         
         if not skill:
             raise HTTPException(
@@ -308,7 +319,7 @@ class EvaluationService:
         return [evaluation.to_dict() for evaluation in evaluations]
 
 
-    def delete_evaluation(self, evaluation_id: UUID) -> None:
+    def delete_evaluation(self, current_user: CurrentUser, evaluation_id: UUID) -> None:
         """
         Deleta permanentemente uma avaliação do banco de dados.
         
@@ -318,15 +329,17 @@ class EvaluationService:
         Raises:
             HTTPException: 404 se a avaliação não for encontrada
         """
-        success = self.evaluation_repository.delete(evaluation_id)
-        
-        if not success:
+        evaluation = self.get_by_id(evaluation_id)
+
+        if not evaluation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Avaliação com ID '{evaluation_id}' não encontrada"
             )
 
-
+        self.has_owned_resource(evaluation.session, current_user)
+        self.evaluation_repository.delete(evaluation_id)
+        
 def get_evaluation_service(
     evaluation_repository: EvaluationRepository,
     session_repository: SessionRepository,

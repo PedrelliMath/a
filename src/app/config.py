@@ -31,6 +31,12 @@ class ApplicationSettings(BaseModel):
     def is_production(self) -> bool:
         return self.app_mode.lower() == "production"
 
+class AuthenticationSettings(BaseModel):
+    jwks_uri: str
+    issuer: str
+    jwt_algorithm: str = Field(default="RS256")
+    jwt_audience: str
+    jwt_scopes: list[str] = Field(default="openid")
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -49,6 +55,12 @@ class Settings(BaseSettings):
     app_mode: str = Field(default="development")
     app_host: str = Field(default="0.0.0.0")
     app_port: int = Field(default=8000)
+
+    jwks_uri: str
+    issuer: str
+    jwt_algorithm: str = Field(default="RS256")
+    jwt_audience: str
+    jwt_scopes: str = Field(default="openid")
     
     @property
     def database(self) -> PostgresSettings:
@@ -66,6 +78,16 @@ class Settings(BaseSettings):
             app_mode=self.app_mode,
             app_host=self.app_host,
             app_port=self.app_port
+        )
+    
+    @property
+    def auth(self) -> AuthenticationSettings:
+        return AuthenticationSettings(
+            jwks_uri=self.jwks_uri,
+            issuer=self.issuer,
+            jwt_algorithm=self.jwt_algorithm,
+            jwt_audience=self.jwt_audience,
+            jwt_scopes=self.jwt_scopes.split()
         )
 
 settings = Settings()

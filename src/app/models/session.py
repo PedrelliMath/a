@@ -88,7 +88,7 @@ class Session(Base):
         session_dict =  {
             "id":str(self.id),
             "skill_id":str(self.skill_id),
-            "user_id":uuid4(),
+            "user_id":self.user_id,
             "created_at":self.created_at,
             "updated_at":self.updated_at
         }

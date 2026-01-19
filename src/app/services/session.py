@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
 from app.models.session import Session, SessionInput, SessionOutput, SessionMessageInput, SessionMessageOutput
+from app.models.current_user import CurrentUser
 from app.repository.session import SessionRepository
 from app.repository.skill import SkillRepository
 from uuid import UUID
@@ -15,8 +16,12 @@ class SessionService:
     def __init__(self, session_repository: SessionRepository, skill_repository: SkillRepository):
         self.session_repository = session_repository
         self.skill_repository = skill_repository
+    
+    def has_owned_resource(self, session: Session, current_user: CurrentUser):
+        if session.user_id != current_user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
-    async def create_session(self, session_input: SessionInput) -> SessionOutput:
+    async def create_session(self, current_user: CurrentUser, session_input: SessionInput) -> SessionOutput:
         skill = self.skill_repository.get_by_id(session_input.skill_id)
         
         if not skill:
@@ -32,7 +37,9 @@ class SessionService:
             )
         
         try:
-            session = self.session_repository.create(session_input)
+
+            session_create = Session(user_id=current_user.id, skill_id=session_input.skill_id, messages=[])
+            session = self.session_repository.create(session_create)
             await self._start_session(session)
             return session.to_dict()
             
@@ -42,7 +49,7 @@ class SessionService:
                 detail=f"Erro ao criar sessão: {str(e)}"
             )
 
-    def get_session_by_id(self, session_id: UUID) -> SessionOutput:
+    def get_session_by_id(self, current_user: CurrentUser, session_id: UUID) -> SessionOutput:
         """
         Busca uma sessão por ID.
         
@@ -57,6 +64,8 @@ class SessionService:
         """
         session = self.session_repository.get_by_id(session_id)
         
+        self.has_owned_resource(session, current_user)
+
         if not session:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -65,7 +74,7 @@ class SessionService:
         
         return session.to_dict()
 
-    def list_sessions(self, limit: int = 100) -> List[SessionOutput]:
+    def list_sessions(self, current_user: CurrentUser, limit: int = 100) -> List[SessionOutput]:
         """
         Lista todas as sessões ordenadas por data de criação (mais recentes primeiro).
         
@@ -81,7 +90,7 @@ class SessionService:
                 detail="Limite deve estar entre 1 e 1000"
             )
         
-        sessions = self.session_repository.get_all(limit=limit)
+        sessions = self.session_repository.get_all_by_user_id(current_user.id, limit=limit)
 
         if not sessions:
             raise HTTPException(
@@ -91,7 +100,7 @@ class SessionService:
 
         return [session.to_dict() for session in sessions]
 
-    def list_sessions_by_skill(self, skill_id: UUID, limit: int = 100) -> List[SessionOutput]:
+    def list_sessions_by_skill(self, current_user: CurrentUser, skill_id: UUID, limit: int = 100) -> List[SessionOutput]:
         """
         Lista todas as sessões de uma skill específica.
         
@@ -119,11 +128,18 @@ class SessionService:
                 detail="Limite deve estar entre 1 e 1000"
             )
         
-        sessions = self.session_repository.get_by_skill_id(skill_id, limit=limit)
+        sessions = self.session_repository.get_all_by_filters(
+            user_id=current_user.id, skill_id=skill_id, limit=limit
+        )
+
+        if not sessions:
+            return []
+
         return [session.to_dict() for session in sessions]
 
     async def add_message(
         self, 
+        current_user: CurrentUser,
         session_id: UUID, 
         message_input: SessionMessageInput
     ):
@@ -160,6 +176,8 @@ class SessionService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Sessão com ID '{session_id}' não encontrada"
             )
+
+        self.has_owned_resource(session, current_user)
         
         try:
             # 1. Salvar mensagem do usuário
@@ -250,7 +268,7 @@ class SessionService:
                 detail=f"Erro ao iniciar sessão: {str(e)}"
             )
 
-    def delete_session(self, session_id: UUID) -> None:
+    def delete_session(self, current_user: CurrentUser, session_id: UUID) -> None:
         """
         Deleta permanentemente uma sessão do banco de dados.
         
@@ -260,15 +278,19 @@ class SessionService:
         Raises:
             HTTPException: 404 se a sessão não for encontrada
         """
-        success = self.session_repository.delete(session_id)
+        session = self.session_repository.get_by_id(session_id)
         
-        if not success:
+        if not session:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Sessão com ID '{session_id}' não encontrada"
             )
 
-    def get_session_messages(self, session_id: UUID) -> List[SessionMessageOutput]:
+        self.has_owned_resource(session, current_user)
+
+        self.session_repository.delete(session_id)
+
+    def get_session_messages(self, current_user: CurrentUser, session_id: UUID) -> List[SessionMessageOutput]:
         """
         Retorna todas as mensagens de uma sessão.
         
@@ -282,6 +304,8 @@ class SessionService:
             HTTPException: 404 se a sessão não for encontrada
         """
         session = self.session_repository.get_by_id(session_id)
+
+        self.has_owned_resource(session, current_user)
         
         if not session:
             raise HTTPException(
@@ -291,7 +315,7 @@ class SessionService:
         
         return session.to_dict(include_messages=True)['messages']
 
-    def get_session_message_count(self, session_id: UUID) -> int:
+    def get_session_message_count(self, current_user: CurrentUser, session_id: UUID) -> int:
         """
         Retorna o número de mensagens em uma sessão.
         
@@ -305,6 +329,8 @@ class SessionService:
             HTTPException: 404 se a sessão não for encontrada
         """
         session = self.session_repository.get_by_id(session_id)
+
+        self.has_owned_resource(session, current_user)
         
         if not session:
             raise HTTPException(

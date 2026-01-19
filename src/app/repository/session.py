@@ -9,8 +9,7 @@ class SessionRepository:
     def __init__(self, db: DBSession):
         self.db = db
 
-    def create(self, session_input: SessionInput) -> Session:
-        session = Session(skill_id=session_input.skill_id, messages=[])
+    def create(self, session: Session) -> Session:
         self.db.add(session)
         self.db.commit()
         self.db.refresh(session)
@@ -18,6 +17,22 @@ class SessionRepository:
 
     def get_by_id(self, session_id: UUID) -> Optional[Session]:
         return self.db.query(Session).filter(Session.id == session_id).first()
+    
+    def get_all_by_user_id(self, user_id: str, limit: int = 100) -> List[Session]:
+        return (
+            self.db.query(Session)
+            .filter(Session.user_id == user_id)
+            .order_by(Session.created_at.desc())
+            .limit(limit).all()
+        )
+    
+    def get_all_by_filters(self, **filters) -> List[Session]:
+        return (
+            self.db.query(Session)
+            .filter_by(**filters)
+            .order_by(Session.created_at.desc())
+            .all()
+        )
 
     def get_all(self, limit: int = 100) -> List[Session]:
         return self.db.query(Session).order_by(Session.created_at.desc()).limit(limit).all()
@@ -52,11 +67,7 @@ class SessionRepository:
         self.db.refresh(session)
         return message
 
-    def delete(self, session_id: UUID) -> bool:
-        session = self.get_by_id(session_id)
-        if not session:
-            return False
-        
+    def delete(self, session: Session) -> bool:
         self.db.delete(session)
         self.db.commit()
         return True

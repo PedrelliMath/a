@@ -5,10 +5,13 @@ from app.services.skill import SkillService, get_skill_service
 from app.repository.skill import get_skill_repository
 from app.database.db import get_db
 from uuid import UUID
+from app.auth.auth import get_current_user, oauth2_scheme
+from app.models.current_user import CurrentUser
 
 router = APIRouter(
     prefix="/skills",
-    tags=["Skills"]
+    tags=["Skills"],
+    dependencies=[Depends(oauth2_scheme)]
 )
 
 def get_skill_service_dep(
@@ -16,7 +19,6 @@ def get_skill_service_dep(
 ) -> SkillService:
     repository = get_skill_repository(db)
     return get_skill_service(repository)
-
 
 @router.post(
     "/",
@@ -27,7 +29,8 @@ def get_skill_service_dep(
 )
 def create_skill(
     skill_input: SkillInput,
-    service: SkillService = Depends(get_skill_service_dep)
+    service: SkillService = Depends(get_skill_service_dep),
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     return service.create_skill(skill_input)
 
@@ -49,7 +52,8 @@ def list_skills(
         le=1000, 
         description="Número máximo de skills a retornar"
     ),
-    service: SkillService = Depends(get_skill_service_dep)
+    service: SkillService = Depends(get_skill_service_dep),
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     return service.list_skills(active_only=active_only, limit=limit)
 
@@ -62,7 +66,8 @@ def list_skills(
 )
 def get_skill(
     skill_id: UUID,
-    service: SkillService = Depends(get_skill_service_dep)
+    service: SkillService = Depends(get_skill_service_dep),
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     return service.get_skill_by_id(skill_id)
 
@@ -75,7 +80,8 @@ def get_skill(
 )
 def get_skill_by_name(
     name: str,
-    service: SkillService = Depends(get_skill_service_dep)
+    service: SkillService = Depends(get_skill_service_dep),
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     return service.get_skill_by_name(name)
 
@@ -89,7 +95,8 @@ def get_skill_by_name(
 def update_skill(
     skill_id: UUID,
     skill_input: SkillInput,
-    service: SkillService = Depends(get_skill_service_dep)
+    service: SkillService = Depends(get_skill_service_dep),
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     return service.update_skill(skill_id, skill_input)
 
@@ -102,7 +109,8 @@ def update_skill(
 )
 def activate_skill(
     skill_id: UUID,
-    service: SkillService = Depends(get_skill_service_dep)
+    service: SkillService = Depends(get_skill_service_dep),
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     return service.activate_skill(skill_id)
 
@@ -115,7 +123,8 @@ def activate_skill(
 )
 def deactivate_skill(
     skill_id: UUID,
-    service: SkillService = Depends(get_skill_service_dep)
+    service: SkillService = Depends(get_skill_service_dep),
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     return service.deactivate_skill(skill_id)
 
@@ -128,6 +137,7 @@ def deactivate_skill(
 )
 def delete_skill(
     skill_id: UUID,
-    service: SkillService = Depends(get_skill_service_dep)
+    service: SkillService = Depends(get_skill_service_dep),
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     service.delete_skill(skill_id)

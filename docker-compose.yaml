@@ -2,6 +2,13 @@ services:
   chatbot-api:
     profiles: ['default', 'no-db']
     container_name: chatbot_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+      keycloak:
+        condition: service_healthy
+        restart: true
     build:
       context: .
       dockerfile: Dockerfile
@@ -13,13 +20,11 @@ services:
       retries: 5
     ports:
       - "8000:8000"
-    networks:
-      - chatbot
+    network_mode: host
     
   postgres:
     profiles: ['default']
     container_name: postgres_chatbot
-    hostname: assessment
     image: postgres:latest
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -34,13 +39,40 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - chatbot
+    network_mode: host
+    
+  keycloak:
+    profiles: ["default"]
+    image: quay.io/keycloak/keycloak:26.4
+    container_name: keycloak_chatbot
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://localhost:5432/${KEYCLOAK_DB_NAME}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_HOSTNAME: ${KEYCLOAK_SERVER_URL}
+
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_PROXY: edge
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/127.0.0.1/8080; \
+          echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3; \
+          if [ $? -eq 0 ]; then exit 0; else exit 1; fi"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    network_mode: host
+    ports:
+      - "8080:8080"
+    command:
+      - start-dev
       
 volumes:
   postgres_data:
-
-networks:
-  chatbot:
-    driver: bridge
-    name: chatbot

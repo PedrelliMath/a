@@ -5,6 +5,8 @@ from datetime import datetime
 from typing import Optional
 import json
 
+from app.models.session import Session
+
 class EvaluationRepository:
     def __init__(self, db: Session):
         self.db = db
@@ -21,8 +23,13 @@ class EvaluationRepository:
         self.db.refresh(evaluation)
         return evaluation
 
-    def get_all(self) -> Optional[list[Evaluation]]:
-        return self.db.query(Evaluation).all()
+    def get_all(self, user_id: str | None = None, **filters) -> list[Evaluation]:
+        query = self.db.query(Evaluation)
+        if user_id:
+            query = query.join(Session).filter(Session.user_id == user_id)
+        if filters:
+            query = query.filter_by(**filters)
+        return query.order_by(Evaluation.created_at.desc()).all()
 
     def get_by_id(self, evaluation_id: UUID) -> Optional[Evaluation]:
         return self.db.query(Evaluation).filter(Evaluation.id == evaluation_id).first()
@@ -44,8 +51,7 @@ class EvaluationRepository:
         self.db.refresh(evaluation)
         return evaluation
 
-    def delete(self, evaluation_id: UUID) -> bool:
-        evaluation = self.get_by_id(evaluation_id)
+    def delete(self, evaluation: Evaluation) -> bool:
         if not evaluation:
             return False
         
