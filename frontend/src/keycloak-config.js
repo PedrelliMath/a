@@ -7,6 +7,7 @@ export const keycloakConfig = {
 export const keycloakInitOptions = {
   onLoad: 'login-required',
   checkLoginIframe: false,
-  pkceMethod: 'S256',
-  redirectUri: window.location.origin + window.location.pathname,
+  pkceMethod: undefined,
+  flow: 'implicit',
+  redirectUri: window.location.origin + window.location.pathname
 };
