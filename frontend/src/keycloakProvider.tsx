@@ -28,11 +28,6 @@ export const KeycloakProvider = ({ children }) => {
         setAuthenticated(authenticated);
         setLoading(false);
 
-        if (!authenticated) {
-          console.log('❌ Usuário não autenticado, redirecionando para login...');
-          kc.login();
-        }
-
         if (authenticated) {
           kc.onTokenExpired = () => {
             console.log('⏰ Token expirado, renovando...');

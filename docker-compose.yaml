@@ -44,11 +44,11 @@ services:
     
   keycloak:
     profiles: ["default"]
-    image: quay.io/keycloak/keycloak:26.4
+    image: quay.io/keycloak/keycloak:23.0.4
     container_name: keycloak_chatbot
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://localhost:${POSTGRES_PORT}/${KEYCLOAK_DB_NAME}
       KC_DB_USERNAME: ${POSTGRES_USER}
