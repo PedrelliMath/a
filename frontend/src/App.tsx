@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Plus, Send, Loader2, ChevronLeft, Menu, X, Info, ChevronRight, FileCheck, MessageSquare, CheckCircle2, TrendingUp, ChevronDown, ChevronUp, LogOut, User, AlertCircle } from 'lucide-react';
+import { MessageCircle, Plus, Send, Loader2, ChevronLeft, Menu, X, Info, ChevronRight, FileCheck, MessageSquare, CheckCircle2, TrendingUp, ChevronDown, ChevronUp, LogOut, User, AlertCircle, BookOpen, ListChecks } from 'lucide-react';
 import { useKeycloak } from './keycloakProvider';
 import { useAuthFetch } from './auth-utils';
 
@@ -53,6 +53,8 @@ function App() {
   const [error, setError] = useState(null);
   const [showProgress, setShowProgress] = useState(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [sidebarView, setSidebarView] = useState('sessions'); // 'sessions' ou 'skills'
+  const [viewingSkill, setViewingSkill] = useState(null); // skill sendo visualizada
   const messagesEndRef = useRef(null);
 
   // Hook para tratamento de erros
@@ -399,6 +401,10 @@ function App() {
       
       await loadSessionMessages(newSession.id);
       
+      // Volta para a view de sessões
+      setSidebarView('sessions');
+      setViewingSkill(null);
+      
       console.log('✨ Sessão criada e carregada com sucesso');
       
     } catch (error) {
@@ -475,6 +481,7 @@ function App() {
     setCurrentSession(session);
     setShowEvaluation(false);
     setCurrentEvaluation(null);
+    setViewingSkill(null);
     
     if (!currentSkill || currentSkill.id !== session.skill_id) {
       setCurrentSkill(null);
@@ -483,6 +490,21 @@ function App() {
     }
     
     await loadSessionMessages(session.id);
+  };
+
+  const viewSkillDetails = async (skill) => {
+    try {
+      setViewingSkill(null);
+      setCurrentSession(null);
+      setShowEvaluation(false);
+      
+      const response = await authFetch(`${API_BASE}/api/v1/skills/${skill.id}`);
+      const skillData = await response.json();
+      setViewingSkill(skillData);
+    } catch (error) {
+      console.error('Erro ao carregar detalhes da skill:', error);
+      handleError(error);
+    }
   };
 
   const createAndLoadEvaluation = async () => {
@@ -586,15 +608,148 @@ function App() {
     }
   };
 
+  // Componente de visualização de habilidade
+  const SkillDetailView = ({ skill }) => {
+    if (!skill) return null;
+
+    const rubrics = skill.questions?.rubrics || {};
+    const macros = Object.keys(rubrics);
+
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
+            <div className="flex items-start gap-4">
+              <BookOpen className="w-8 h-8 flex-shrink-0 mt-1" />
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold mb-2">{skill.name}</h2>
+                <p className="text-blue-100">{skill.description}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Informações Gerais */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-1">ID da Habilidade</p>
+                <p className="font-mono text-sm text-gray-900">{skill.id}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-1">Total de Macros</p>
+                <p className="text-2xl font-bold text-blue-600">{macros.length}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Macro Habilidades e Níveis de Bloom */}
+          <div className="p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <ListChecks className="w-5 h-5 text-blue-600" />
+              Macro Habilidades e Questões
+            </h3>
+
+            {macros.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>Nenhuma macro habilidade definida</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {macros.map((macroName, macroIndex) => {
+                  const bloomLevels = rubrics[macroName];
+                  const bloomKeys = Object.keys(bloomLevels);
+
+                  return (
+                    <div key={macroIndex} className="border border-gray-200 rounded-lg overflow-hidden">
+                      {/* Header da Macro */}
+                      <div className="bg-blue-50 px-4 py-3 border-b border-blue-100">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-bold text-gray-900">{macroName}</h4>
+                          <span className="text-sm text-blue-600 font-medium">
+                            {bloomKeys.length} {bloomKeys.length === 1 ? 'nível' : 'níveis'} de Bloom
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Níveis de Bloom */}
+                      <div className="p-4 space-y-4">
+                        {bloomKeys.map((bloomLevel, bloomIndex) => {
+                          const questions = bloomLevels[bloomLevel];
+                          
+                          return (
+                            <div key={bloomIndex} className="bg-gray-50 rounded-lg p-4">
+                              <div className="flex items-center gap-2 mb-3">
+                                <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-semibold">
+                                  {bloomLevel}
+                                </div>
+                                <span className="text-xs text-gray-500">
+                                  {Array.isArray(questions) ? questions.length : 0} {Array.isArray(questions) && questions.length === 1 ? 'questão' : 'questões'}
+                                </span>
+                              </div>
+
+                              {Array.isArray(questions) && questions.length > 0 ? (
+                                <div className="space-y-2">
+                                  {questions.map((question, qIndex) => (
+                                    <div key={qIndex} className="bg-white rounded border border-gray-200 p-3">
+                                      <div className="flex items-start gap-2">
+                                        <span className="bg-gray-200 text-gray-700 text-xs font-bold px-2 py-1 rounded flex-shrink-0">
+                                          Q{qIndex + 1}
+                                        </span>
+                                        <p className="text-sm text-gray-800 flex-1">{question}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-500 italic">Nenhuma questão definida</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* JSON Completo (opcional, colapsável) */}
+          <details className="border-t border-gray-200">
+            <summary className="px-6 py-4 cursor-pointer hover:bg-gray-50 font-medium text-gray-700">
+              Ver JSON Completo
+            </summary>
+            <div className="px-6 pb-6">
+              <pre className="text-xs text-gray-800 overflow-x-auto whitespace-pre-wrap break-words bg-gray-50 rounded p-4 border border-gray-200">
+                {JSON.stringify(skill, null, 2)}
+              </pre>
+            </div>
+          </details>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       <ErrorAlert message={error} onClose={clearError} />
 
+      {/* SIDEBAR */}
       <div className={`${sidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 bg-white border-r border-gray-200 flex flex-col overflow-hidden`}>
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <MessageCircle className="w-6 h-6" />
-            Conversas
+            {sidebarView === 'sessions' ? (
+              <>
+                <MessageCircle className="w-6 h-6" />
+                Conversas
+              </>
+            ) : (
+              <>
+                <BookOpen className="w-6 h-6" />
+                Habilidades
+              </>
+            )}
           </h2>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -604,42 +759,106 @@ function App() {
           </button>
         </div>
 
-        <div className="p-4">
-          <button
-            onClick={() => {
-              console.log('🔘 Botão "Novo Chat" clicado. Skills disponíveis:', skills.length);
-              setShowSkillSelector(true);
-            }}
-            className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 font-medium"
-          >
-            <Plus className="w-5 h-5" />
-            Novo Chat
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-4 space-y-2">
-          {Array.isArray(sessions) && sessions.map(session => (
+        {/* Toggle entre Sessões e Habilidades */}
+        <div className="px-4 pt-4 pb-2">
+          <div className="bg-gray-100 rounded-lg p-1 flex gap-1">
             <button
-              key={session.id}
-              onClick={() => selectSession(session)}
-              className={`w-full text-left p-3 rounded-lg transition ${
-                currentSession?.id === session.id
-                  ? 'bg-blue-50 border border-blue-200'
-                  : 'hover:bg-gray-50 border border-transparent'
+              onClick={() => {
+                setSidebarView('sessions');
+                setViewingSkill(null);
+              }}
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition ${
+                sidebarView === 'sessions'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              <div className="font-medium text-gray-900 truncate">
-                {getSessionDisplayName(session)}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {formatDate(session.created_at)}
-              </div>
+              <MessageCircle className="w-4 h-4 inline mr-1" />
+              Sessões
             </button>
-          ))}
+            <button
+              onClick={() => {
+                setSidebarView('skills');
+                setCurrentSession(null);
+                setShowEvaluation(false);
+              }}
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition ${
+                sidebarView === 'skills'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <BookOpen className="w-4 h-4 inline mr-1" />
+              Habilidades
+            </button>
+          </div>
+        </div>
+
+        {/* Botão Novo Chat (apenas na view de sessões) */}
+        {sidebarView === 'sessions' && (
+          <div className="px-4 pb-4">
+            <button
+              onClick={() => {
+                console.log('🔘 Botão "Novo Chat" clicado. Skills disponíveis:', skills.length);
+                setShowSkillSelector(true);
+              }}
+              className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 font-medium"
+            >
+              <Plus className="w-5 h-5" />
+              Novo Chat
+            </button>
+          </div>
+        )}
+
+        {/* Lista de Sessões ou Habilidades */}
+        <div className="flex-1 overflow-y-auto px-4 space-y-2">
+          {sidebarView === 'sessions' ? (
+            // Lista de Sessões
+            Array.isArray(sessions) && sessions.map(session => (
+              <button
+                key={session.id}
+                onClick={() => selectSession(session)}
+                className={`w-full text-left p-3 rounded-lg transition ${
+                  currentSession?.id === session.id
+                    ? 'bg-blue-50 border border-blue-200'
+                    : 'hover:bg-gray-50 border border-transparent'
+                }`}
+              >
+                <div className="font-medium text-gray-900 truncate">
+                  {getSessionDisplayName(session)}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {formatDate(session.created_at)}
+                </div>
+              </button>
+            ))
+          ) : (
+            // Lista de Habilidades
+            Array.isArray(skills) && skills.map(skill => (
+              <button
+                key={skill.id}
+                onClick={() => viewSkillDetails(skill)}
+                className={`w-full text-left p-3 rounded-lg transition ${
+                  viewingSkill?.id === skill.id
+                    ? 'bg-blue-50 border border-blue-200'
+                    : 'hover:bg-gray-50 border border-transparent'
+                }`}
+              >
+                <div className="font-medium text-gray-900 truncate">
+                  {skill.name}
+                </div>
+                <div className="text-xs text-gray-500 mt-1 truncate">
+                  {skill.description}
+                </div>
+              </button>
+            ))
+          )}
         </div>
       </div>
 
+      {/* ÁREA PRINCIPAL */}
       <div className="flex-1 flex flex-col">
+        {/* Header */}
         <div className="bg-white border-b border-gray-200 p-4 flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -647,7 +866,13 @@ function App() {
           >
             <Menu className="w-6 h-6" />
           </button>
-          {currentSession && (
+          
+          {viewingSkill ? (
+            <div className="flex-1">
+              <h1 className="text-xl font-bold text-gray-800">{viewingSkill.name}</h1>
+              <p className="text-sm text-gray-500">Detalhes da Habilidade</p>
+            </div>
+          ) : currentSession ? (
             <>
               <div className="flex-1">
                 <h1 className="text-xl font-bold text-gray-800">
@@ -690,9 +915,11 @@ function App() {
                 {paramsOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
               </button>
             </>
+          ) : (
+            <div className="flex-1"></div>
           )}
           
-          <div className="relative">
+          <div className="relative ml-auto">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="p-2 hover:bg-gray-100 rounded-lg transition flex items-center gap-2"
@@ -728,10 +955,16 @@ function App() {
           </div>
         </div>
 
-        {currentSession && !showEvaluation && <ProgressBar />}
+        {/* Progress Bar (apenas para sessões) */}
+        {currentSession && !showEvaluation && !viewingSkill && <ProgressBar />}
 
+        {/* Área de Conteúdo */}
         <div className="flex-1 overflow-y-auto p-4">
-          {!currentSession ? (
+          {viewingSkill ? (
+            // Visualização de Habilidade
+            <SkillDetailView skill={viewingSkill} />
+          ) : !currentSession ? (
+            // Estado vazio
             <div className="h-full flex items-center justify-center">
               <div className="text-center text-gray-500">
                 <MessageCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
@@ -740,6 +973,7 @@ function App() {
               </div>
             </div>
           ) : showEvaluation && currentEvaluation ? (
+            // Visualização de Avaliação
             <div className="max-w-4xl mx-auto">
               <div className="bg-white rounded-lg shadow-lg p-6">
                 <div className="border-b border-gray-200 pb-4 mb-6">
@@ -815,6 +1049,7 @@ function App() {
               </div>
             </div>
           ) : (
+            // Visualização de Mensagens
             <div className="max-w-3xl mx-auto space-y-4">
               {Array.isArray(messages) && messages.map((message) => (
                 <div
@@ -849,7 +1084,8 @@ function App() {
           )}
         </div>
 
-        {currentSession && !showEvaluation && !isSessionFinished() && (
+        {/* Input de Mensagem */}
+        {currentSession && !showEvaluation && !isSessionFinished() && !viewingSkill && (
           <div className="border-t border-gray-200 bg-white p-4">
             <div className="max-w-3xl mx-auto flex gap-2">
               <input
@@ -876,7 +1112,8 @@ function App() {
           </div>
         )}
 
-        {currentSession && !showEvaluation && isSessionFinished() && (
+        {/* Mensagem de Sessão Finalizada */}
+        {currentSession && !showEvaluation && isSessionFinished() && !viewingSkill && (
           <div className="border-t border-gray-200 bg-gray-50 p-4">
             <div className="max-w-3xl mx-auto text-center">
               <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-3 rounded-lg">
@@ -888,6 +1125,7 @@ function App() {
         )}
       </div>
 
+      {/* PAINEL DE PARÂMETROS */}
       <div className={`${paramsOpen ? 'w-96' : 'w-0'} transition-all duration-300 bg-white border-l border-gray-200 flex flex-col overflow-hidden`}>
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -936,6 +1174,7 @@ function App() {
         </div>
       </div>
 
+      {/* MODAL DE SELEÇÃO DE SKILL */}
       {showSkillSelector && (() => {
       console.log('🎨 Modal renderizando. Estado:', {
         showSkillSelector,
@@ -959,7 +1198,6 @@ function App() {
               </button>
             </div>
             
-            {/* ADICIONE OVERLAY DE LOADING */}
             {loading && (
               <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-10">
                 <div className="text-center">
