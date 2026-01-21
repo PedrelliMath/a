@@ -3,7 +3,7 @@ import { MessageCircle, Plus, Send, Loader2, ChevronLeft, Menu, X, Info, Chevron
 import { useKeycloak } from './keycloakProvider';
 import { useAuthFetch } from './auth-utils';
 
-const API_BASE = 'http://100.67.134.67:8000';
+const API_BASE = `http://${process.env.APP_HOST}:${process.env.APP_PORT}`
 
 // Componente de Alert de Erro
 const ErrorAlert = ({ message, onClose }) => {

@@ -28,4 +28,4 @@ ENV PATH="/project/.venv/bin:$PATH"
 COPY src/app /project/app
 WORKDIR /project/app/
 ENV PYTHONPATH=/project
-CMD [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000" ]
+CMD ["sh", "-c", "uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT}"]

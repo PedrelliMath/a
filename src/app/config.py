@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = Field(default="RS256")
     jwt_audience: str
     jwt_scopes: str = Field(default="openid")
+    keycloak_port: int
     
     @property
     def database(self) -> PostgresSettings:
@@ -83,11 +84,15 @@ class Settings(BaseSettings):
     @property
     def auth(self) -> AuthenticationSettings:
         return AuthenticationSettings(
-            jwks_uri=self.jwks_uri,
-            issuer=self.issuer,
+            jwks_uri=f"{self.protocol}://{self.app_host}:{self.keycloak_port}/{self.jwks_uri}",
+            issuer=f"{self.protocol}://{self.app_host}:{self.keycloak_port}/{self.issuer}",
             jwt_algorithm=self.jwt_algorithm,
             jwt_audience=self.jwt_audience,
             jwt_scopes=self.jwt_scopes.split()
         )
+    
+    @property
+    def protocol(self) -> str:
+        return "https" if self.app.is_production else "http"
 
 settings = Settings()
