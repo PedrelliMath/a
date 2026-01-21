@@ -1,5 +1,5 @@
 export const keycloakConfig = {
-  url: 'http://localhost:8080',
+  url: 'http://100.67.134.67:8080',
   realm: 'ceia',
   clientId: 'chatbot-frontend',
 };
