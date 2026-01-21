@@ -62,7 +62,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "exec 3<>/dev/tcp/127.0.0.1/8080; \
+          "exec 3<>/dev/tcp/127.0.0.1/${KEYCLOAK_PORT}; \
           echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3; \
           if [ $? -eq 0 ]; then exit 0; else exit 1; fi"
         ]
@@ -73,9 +73,10 @@ services:
     volumes:
       - ./realm-export.json:/opt/keycloak/data/import/realm-export.json
     ports:
-      - "8080:8080"
+      - "${KEYCLOAK_PORT}:${KEYCLOAK_PORT}"
     command:
       - start-dev
+      - --http-port=${KEYCLOAK_PORT}
       - --import-realm
       
 volumes:
