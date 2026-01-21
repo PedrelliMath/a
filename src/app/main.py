@@ -46,7 +46,7 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
     swagger_ui_init_oauth={
-        "clientId": "swagger",
+        "clientId": "chatbot-frontend",
         "appName": "Assessment API - Swagger UI",
         "usePkceWithAuthorizationCodeGrant": True, 
         "scopes": "openid profile email",    
