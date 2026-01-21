@@ -19,20 +19,40 @@ export const KeycloakProvider = ({ children }) => {
 
   useEffect(() => {
     const kc = new Keycloak(keycloakConfig);
-    
+
     kc.init(keycloakInitOptions)
       .then((authenticated) => {
+        console.log('🔐 Keycloak inicializado. Authenticated:', authenticated);
+        
         setKeycloak(kc);
         setAuthenticated(authenticated);
         setLoading(false);
-        
-        // Auto-refresh do token
-        kc.onTokenExpired = () => {
-          kc.updateToken(30).catch(() => kc.login());
-        };
+
+        if (!authenticated) {
+          console.log('❌ Usuário não autenticado, redirecionando para login...');
+          kc.login();
+        }
+
+        if (authenticated) {
+          kc.onTokenExpired = () => {
+            console.log('⏰ Token expirado, renovando...');
+            kc.updateToken(30)
+              .then((refreshed) => {
+                if (refreshed) {
+                  console.log('✅ Token renovado com sucesso');
+                } else {
+                  console.log('ℹ️ Token ainda válido');
+                }
+              })
+              .catch(() => {
+                console.log('❌ Falha ao renovar token, redirecionando para login');
+                kc.login();
+              });
+          };
+        }
       })
       .catch((error) => {
-        console.error('Erro ao inicializar Keycloak:', error);
+        console.error('❌ Erro ao inicializar Keycloak:', error);
         setLoading(false);
       });
   }, []);
@@ -48,11 +68,14 @@ export const KeycloakProvider = ({ children }) => {
     );
   }
 
+
   if (!authenticated) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Redirecionando para login...</h2>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Redirecionando para login...</h2>
+          <p className="text-sm text-gray-600">Você será redirecionado em instantes</p>
         </div>
       </div>
     );
