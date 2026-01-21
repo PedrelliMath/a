@@ -22,7 +22,7 @@ def init_custom_open_api(app):
                 "type": "oauth2",
                 "flows": {
                     "authorizationCode": {
-                        "authorizationUrl": f"{settings.auth.issuer}/protocol/openid-connect/auth?client_id=chatbot-frontend",
+                        "authorizationUrl": f"{settings.auth.issuer}/protocol/openid-connect/auth",
                         "tokenUrl": f"{settings.auth.issuer}/protocol/openid-connect/token",
                         "scopes": {
                             "openid": "OpenID Connect",
