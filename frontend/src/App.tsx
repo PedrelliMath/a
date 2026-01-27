@@ -171,13 +171,24 @@ function App() {
       if (msg.user_type === 'bot' && msg.params) {
         const tracker = msg.params.progress_tracker;
         const validator = msg.params.message_validator;
+        const isValid = validator && validator.is_valid === true;
         
+        // Caso 1: Sessão finalizada (should_continue === false)
         if (tracker && tracker.should_continue === false) {
-          const macro = msg.params.new_specific_skill;
-          const isValid = validator && validator.is_valid === true;
+          // Na finalização, a pergunta respondida é da skill atual
+          // Se changed_skill é true, usa previous_skill; senão usa new_specific_skill ou previous_skill
+          let macro;
+          if (tracker.changed_skill === true && tracker.previous_skill) {
+            macro = tracker.previous_skill;
+          } else {
+            macro = msg.params.new_specific_skill || tracker.previous_skill;
+          }
           
           console.log(`Mensagem #${index} [FINALIZAÇÃO]:`, {
-            new_specific_skill: macro,
+            macro_contabilizada: macro,
+            previous_skill: tracker.previous_skill,
+            new_specific_skill: msg.params.new_specific_skill,
+            changed_skill: tracker.changed_skill,
             should_continue: false,
             isValid,
             validator,
@@ -199,12 +210,14 @@ function App() {
             console.warn(`⚠ Macro "${macro}" não encontrada na estrutura de progresso (finalização)`);
           }
         }
-        else if (tracker && tracker.previous_skill) {
+        // Caso 2: Houve mudança de skill (changed_skill === true)
+        // A resposta do usuário foi para a pergunta ANTERIOR, então contabiliza pelo previous_skill
+        else if (tracker && tracker.changed_skill === true && tracker.previous_skill) {
           const macro = tracker.previous_skill;
-          const isValid = validator && validator.is_valid === true;
           
-          console.log(`Mensagem #${index}:`, {
-            previous_skill: macro,
+          console.log(`Mensagem #${index} [MUDANÇA DE SKILL]:`, {
+            macro_contabilizada: macro,
+            previous_skill: tracker.previous_skill,
             new_skill: tracker.new_skill,
             changed_skill: tracker.changed_skill,
             isValid,
@@ -219,12 +232,42 @@ function App() {
                 progress[macro].validated,
                 progress[macro].total
               );
-              console.log(`✓ Validada para ${macro}: ${progress[macro].answered}/${progress[macro].total}`);
+              console.log(`✓ Validada para ${macro} (mudança): ${progress[macro].answered}/${progress[macro].total}`);
             } else {
-              console.log(`✗ Não validada para ${macro}`);
+              console.log(`✗ Não validada para ${macro} (mudança)`);
             }
           } else if (macro) {
-            console.warn(`⚠ Macro "${macro}" não encontrada na estrutura de progresso`);
+            console.warn(`⚠ Macro "${macro}" não encontrada na estrutura de progresso (mudança)`);
+          }
+        }
+        // Caso 3: Continuação na mesma skill (changed_skill === false ou não existe)
+        // A resposta do usuário foi para a skill atual
+        else if (tracker && tracker.previous_skill && tracker.changed_skill === false) {
+          const macro = tracker.previous_skill; // previous_skill = new_skill quando não há mudança
+          
+          console.log(`Mensagem #${index} [MESMA SKILL]:`, {
+            macro_contabilizada: macro,
+            previous_skill: tracker.previous_skill,
+            new_skill: tracker.new_skill,
+            changed_skill: tracker.changed_skill,
+            isValid,
+            validator,
+            tracker
+          });
+          
+          if (macro && progress[macro]) {
+            if (isValid) {
+              progress[macro].validated++;
+              progress[macro].answered = Math.min(
+                progress[macro].validated,
+                progress[macro].total
+              );
+              console.log(`✓ Validada para ${macro} (continuação): ${progress[macro].answered}/${progress[macro].total}`);
+            } else {
+              console.log(`✗ Não validada para ${macro} (continuação)`);
+            }
+          } else if (macro) {
+            console.warn(`⚠ Macro "${macro}" não encontrada na estrutura de progresso (continuação)`);
           }
         }
       }
@@ -425,13 +468,24 @@ function App() {
       
       console.log('Mensagens carregadas:', validMessages);
       
+      // Verifica se a sessão foi finalizada
       const hasFinishedMessage = validMessages.some(msg => 
         msg.user_type === 'bot' && 
         msg.params?.progress_tracker?.should_continue === false
       );
       
-      if (hasFinishedMessage && !currentEvaluation) {
-        await createEvaluationAutomatically(sessionId);
+      if (hasFinishedMessage) {
+        // Verifica se já existe avaliação no estado local (carregado no loadInitialData)
+        const existingEvaluation = evaluations.find(ev => ev.session_id === sessionId);
+        
+        if (existingEvaluation) {
+          console.log('✅ Avaliação já existe no estado local:', existingEvaluation);
+          setCurrentEvaluation(existingEvaluation);
+        } else {
+          // Não existe avaliação, precisa criar via POST
+          console.log('🏁 Sessão finalizada sem avaliação! Criando...');
+          await createEvaluationAutomatically(sessionId);
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error);
@@ -441,36 +495,36 @@ function App() {
   };
 
   const createEvaluationAutomatically = async (sessionId) => {
-    if (loadingEvaluation) return;
+    // Evita chamadas duplicadas
+    if (loadingEvaluation) {
+      console.log('⏳ Já está carregando avaliação, ignorando chamada duplicada');
+      return;
+    }
     
     setLoadingEvaluation(true);
+    console.log('🚀 Criando avaliação via POST para sessão:', sessionId);
+    
     try {
-      const getResponse = await authFetch(
-        `${API_BASE}/api/v1/evaluations/session/${sessionId}`
+      const createResponse = await authFetch(
+        `${API_BASE}/api/v1/evaluations/session/${sessionId}`,
+        { method: 'POST' }
       );
-      
-      if (getResponse.ok) {
-        const evaluationData = await getResponse.json();
+
+      if (createResponse.ok) {
+        // Avaliação criada com sucesso, usa a resposta diretamente
+        const evaluationData = await createResponse.json();
+        console.log('✅ Avaliação criada com sucesso:', evaluationData);
         setCurrentEvaluation(evaluationData);
-      } else {
-        const createResponse = await authFetch(
-          `${API_BASE}/api/v1/evaluations/session/${sessionId}`,
-          { method: 'POST' }
-        );
-
-        if (!createResponse.ok) {
-          throw new Error('Erro ao criar avaliação');
-        }
-
-        const getNewResponse = await authFetch(
-          `${API_BASE}/api/v1/evaluations/session/${sessionId}`
-        );
         
-        const evaluationData = await getNewResponse.json();
-        setCurrentEvaluation(evaluationData);
+        // Adiciona a nova avaliação ao estado local
+        setEvaluations(prev => [...prev, evaluationData]);
+      } else {
+        // Erro ao criar
+        const errorData = await createResponse.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Erro ao criar avaliação: ${createResponse.status}`);
       }
     } catch (error) {
-      console.error('Erro ao criar/carregar avaliação:', error);
+      console.error('❌ Erro ao criar avaliação:', error);
       handleError(error);
     } finally {
       setLoadingEvaluation(false);
@@ -504,35 +558,6 @@ function App() {
     } catch (error) {
       console.error('Erro ao carregar detalhes da skill:', error);
       handleError(error);
-    }
-  };
-
-  const createAndLoadEvaluation = async () => {
-    if (!currentSession) return;
-    
-    setLoadingEvaluation(true);
-    try {
-      const createResponse = await authFetch(
-        `${API_BASE}/api/v1/evaluations/session/${currentSession.id}`,
-        { method: 'POST' }
-      );
-
-      if (!createResponse.ok) {
-        throw new Error('Erro ao criar avaliação');
-      }
-
-      const getResponse = await authFetch(
-        `${API_BASE}/api/v1/evaluations/session/${currentSession.id}`
-      );
-      
-      const evaluationData = await getResponse.json();
-      setCurrentEvaluation(evaluationData);
-      setShowEvaluation(true);
-    } catch (error) {
-      console.error('Erro ao criar/carregar avaliação:', error);
-      handleError(error);
-    } finally {
-      setLoadingEvaluation(false);
     }
   };
 
@@ -1051,27 +1076,67 @@ function App() {
           ) : (
             // Visualização de Mensagens
             <div className="max-w-3xl mx-auto space-y-4">
-              {Array.isArray(messages) && messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.user_type === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
+              {Array.isArray(messages) && messages.map((message) => {
+                // Função para extrair a macro competência da mensagem do bot
+                const getMacroCompetencia = () => {
+                  if (message.user_type !== 'bot' || !message.params) return null;
+                  
+                  const tracker = message.params.progress_tracker;
+                  const newSpecificSkill = message.params.new_specific_skill;
+                  
+                  // Se should_continue é false, é mensagem de encerramento - não mostra macro
+                  if (tracker && tracker.should_continue === false) {
+                    return null;
+                  }
+                  
+                  // Se não tem tracker, é mensagem de boas vindas - usa new_specific_skill
+                  if (!tracker) {
+                    return newSpecificSkill || null;
+                  }
+                  
+                  // Se changed_skill é true, a pergunta é sobre a new_skill
+                  if (tracker.changed_skill === true) {
+                    return tracker.new_skill || newSpecificSkill || null;
+                  }
+                  
+                  // Se changed_skill é false, continua na mesma skill (previous_skill = new_skill)
+                  if (tracker.changed_skill === false) {
+                    return tracker.new_skill || tracker.previous_skill || newSpecificSkill || null;
+                  }
+                  
+                  // Fallback para new_specific_skill
+                  return newSpecificSkill || null;
+                };
+                
+                const macroCompetencia = getMacroCompetencia();
+                
+                return (
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                      message.user_type === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white border border-gray-200 text-gray-800'
-                    }`}
+                    key={message.id}
+                    className={`flex ${message.user_type === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <p className="whitespace-pre-wrap">{message.text}</p>
-                    <p className={`text-xs mt-1 ${
-                      message.user_type === 'user' ? 'text-blue-100' : 'text-gray-400'
-                    }`}>
-                      {formatDate(message.created_at)}
-                    </p>
+                    <div
+                      className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                        message.user_type === 'user'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white border border-gray-200 text-gray-800'
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap">{message.text}</p>
+                      <div className={`flex items-center justify-between gap-2 mt-1 ${
+                        message.user_type === 'user' ? 'text-blue-100' : 'text-gray-400'
+                      }`}>
+                        <span className="text-xs">{formatDate(message.created_at)}</span>
+                        {message.user_type === 'bot' && macroCompetencia && (
+                          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                            {macroCompetencia}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {loading && (
                 <div className="flex justify-start">
                   <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3">

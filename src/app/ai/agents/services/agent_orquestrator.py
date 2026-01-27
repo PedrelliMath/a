@@ -377,25 +377,44 @@ class AgentOrquestrator:
         incluindo a pergunta inicial do supervisor.
         """
         count = 0
-
+    
         for msg in messages:
             if msg.get("user_type") != "bot":
                 continue
-
+            
             params = msg.get("params") or {}
+            tracker = params.get("progress_tracker") or {}
+            validator = params.get("message_validator") or {}
+            
+            # Ignora mensagem de encerramento
+            if tracker.get("should_continue") is False:
+                continue
+            
+            # Caso 1: Mensagem de greeting (primeira pergunta da skill)
+            # Conta baseado no new_specific_skill e is_valid
+            is_supervisor_greeting = params.get("supervisor", {}).get("action") == "greeting"
+            if is_supervisor_greeting:
+                new_specific_skill = params.get("new_specific_skill")
+                if new_specific_skill == specific_skill:
+                    count += 1
+                continue
+            
+            # Caso 2: Mensagens normais (não greeting)
+            # A resposta do usuário é sempre para previous_skill
+            if not tracker:
+                continue
+                
+            previous_skill = tracker.get("previous_skill")
+            new_skill = tracker.get("new_skill")
+            is_valid = validator.get("is_valid") is True
+            changed = tracker.get("changed_skill")
 
-            is_valid_skill_question = (
-                params.get("new_specific_skill") == specific_skill
-                and params.get("message_validator", {}).get("is_valid")
-            )
-
-            is_supervisor_greeting = (
-                params.get("supervisor", {})
-                    .get("action", {}) == "greeting"
-            )
-
-            if is_valid_skill_question or is_supervisor_greeting:
-                count += 1
+            if changed and is_valid:
+                if new_skill == specific_skill:
+                    count += 1
+            elif not changed and is_valid:
+                if previous_skill == specific_skill:
+                    count += 1
 
         return count
 
@@ -575,6 +594,11 @@ class AgentOrquestrator:
         count_messages = self._count_messages_for_skill(
             self.context_in.message_history, 
             self.context_running.new_specific_skill
+        )
+
+        logger.info(
+            f"Macrocompetencia: {self.context_running.new_specific_skill}\n"
+            f"Perguntas já realizadas: {count_messages}"
         )
 
         # Se já tem 2+ mensagens, mudar para próxima skill

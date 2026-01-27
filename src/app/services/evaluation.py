@@ -152,7 +152,7 @@ class EvaluationService:
         
         return iterations
 
-    def create_evaluation(self, CurrentUser: CurrentUser, session_id) -> EvaluationOutput:
+    def create_evaluation(self, current_user: CurrentUser, session_id) -> EvaluationOutput:
         """
         Cria uma nova avaliação vinculada a uma sessão.
         
