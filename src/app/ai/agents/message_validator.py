@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 
 from app.logger import get_log
+from app.observability import track_helicone
 
 logger = get_log(__name__)
 
@@ -37,6 +38,7 @@ class AgentMessageValidator:
 
         self.runner.system_prompt = system_prompt
 
+    @track_helicone(agent_type="message_validator")
     async def run_validation(self, validation_context: dict):
         final_prompt = self.validation_prompt.format(
             question=validation_context['question'],
