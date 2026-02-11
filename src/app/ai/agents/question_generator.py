@@ -4,6 +4,7 @@ from app.ai.agents.prompts.question_generator import system_prompt_generation
 from app.ai.agents.prompts.question_generator import system_prompt_regeneration
 
 from app.logger import get_log
+from app.observability import track_helicone
 
 logger = get_log(__name__)
 
@@ -29,6 +30,7 @@ class AgentQuestionGenerator:
 
         self.runner.system_prompt = system_prompt
 
+    @track_helicone(agent_type="question_generator")
     async def run_generation(self, generation_context: dict):
 
         self.runner.system_prompt = system_prompt_generation
@@ -41,6 +43,7 @@ class AgentQuestionGenerator:
         logger.info(f"run_generation final_prompt:\n{final_prompt}")
         return await self.runner.run(user_prompt=final_prompt)
 
+    @track_helicone(agent_type="question_generator")
     async def run_regeneration(self, context: dict):
 
         self.runner.system_prompt = system_prompt_regeneration

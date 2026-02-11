@@ -1,6 +1,7 @@
 from pydantic_ai import Agent
 from pydantic import BaseModel, Field
 from app.logger import get_log
+from app.observability import track_helicone
 
 logger = get_log(__name__)
 
@@ -23,6 +24,7 @@ class AgentSkillEvaluator:
 
         self.runner.system_prompt = system_prompt
 
+    @track_helicone(agent_type="skill_evaluator")
     async def run_evaluation(self, evaluation_context: dict):
 
         objetivo = (

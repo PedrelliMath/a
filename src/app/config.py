@@ -38,6 +38,18 @@ class AuthenticationSettings(BaseModel):
     jwt_audience: str
     jwt_scopes: list[str] = Field(default="openid")
 
+class HeliconeSettings(BaseModel):
+    """Configurações para observabilidade com Helicone"""
+    helicone_api_key: SecretStr = Field(default=None)
+    helicone_enabled: bool = Field(default=True)
+    helicone_base_url: str = Field(default="https://oai.helicone.ai/v1")
+    
+    @property
+    def is_configured(self) -> bool:
+        """Verifica se o Helicone está configurado corretamente"""
+        return self.helicone_enabled and self.helicone_api_key is not None
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -63,6 +75,11 @@ class Settings(BaseSettings):
     jwt_scopes: str = Field(default="openid")
     keycloak_server_url: str
     
+    # Helicone - Observabilidade
+    helicone_api_key: SecretStr = Field(default=None)
+    helicone_enabled: bool = Field(default=True)
+    helicone_base_url: str = Field(default="https://oai.helicone.ai/v1")
+    
     @property
     def database(self) -> PostgresSettings:
         return PostgresSettings(
@@ -85,7 +102,7 @@ class Settings(BaseSettings):
     def auth(self) -> AuthenticationSettings:
         return AuthenticationSettings(
             jwks_uri=f"{self.protocol}://{self.keycloak_server_url}/{self.jwks_uri}",
-            issuer=f"{self.protocol}://{self.keycloak_server_url}/{self.issuer}",
+            issuer=f"{self.protocol}://{public_url}/{self.issuer}",
             jwt_algorithm=self.jwt_algorithm,
             jwt_audience=self.jwt_audience,
             jwt_scopes=self.jwt_scopes.split()
@@ -94,5 +111,13 @@ class Settings(BaseSettings):
     @property
     def protocol(self) -> str:
         return "https" if self.app.is_production else "http"
+    
+    @property
+    def helicone(self) -> HeliconeSettings:
+        return HeliconeSettings(
+            helicone_api_key=self.helicone_api_key,
+            helicone_enabled=self.helicone_enabled,
+            helicone_base_url=self.helicone_base_url
+        )
 
 settings = Settings()

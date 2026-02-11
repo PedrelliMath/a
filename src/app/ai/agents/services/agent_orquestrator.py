@@ -26,6 +26,7 @@ from app.ai.agents.supervisor import AgentSupervisor, AgentSupervisorResponse
 from app.ai.agents.schemas.chat import ChatContextIn, ChatContextOut, ChatContextRunning
 from app.models.session import Session
 from app.logger import get_log
+from app.observability import HeliconeContext
 
 logger = get_log(__name__)
 
@@ -197,28 +198,33 @@ class AgentOrquestrator:
         Nota: As mensagens NÃO são salvas aqui. Isso deve ser feito após
         receber a resposta deste método.
         """
-        try:
-            # Inicializar agentes se ainda não foram (primeira chamada)
-            await self._init_agents()
-            
-            # Carregar contexto da conversa (context_in é imutável)
-            self.context_in = await self._load_conversation_context(
-                is_greeting=user_message is None
-            )
-            
-            # Inicializar context_running com valores do context_in
-            self._init_running_context()
+        # Configurar contexto do Helicone para observabilidade
+        with HeliconeContext(
+            session_id=str(self.session.id),
+            user_id=self.session.user_id
+        ):
+            try:
+                # Inicializar agentes se ainda não foram (primeira chamada)
+                await self._init_agents()
+                
+                # Carregar contexto da conversa (context_in é imutável)
+                self.context_in = await self._load_conversation_context(
+                    is_greeting=user_message is None
+                )
+                
+                # Inicializar context_running com valores do context_in
+                self._init_running_context()
 
-            # Caso especial: primeira interação
-            if not user_message:
-                return await self._handle_greeting()
+                # Caso especial: primeira interação
+                if not user_message:
+                    return await self._handle_greeting()
 
-            # Fluxo normal: processar mensagem do usuário
-            return await self._process_user_message(user_message)
+                # Fluxo normal: processar mensagem do usuário
+                return await self._process_user_message(user_message)
 
-        except Exception as e:
-            logger.error(f"Erro no AgentOrquestrador: {e}", exc_info=True)
-            return self._error_response()
+            except Exception as e:
+                logger.error(f"Erro no AgentOrquestrador: {e}", exc_info=True)
+                return self._error_response()
 
     def _init_running_context(self):
         """
