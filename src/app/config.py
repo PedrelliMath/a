@@ -80,6 +80,17 @@ class Settings(BaseSettings):
     helicone_enabled: bool = Field(default=True)
     helicone_base_url: str = Field(default="https://oai.helicone.ai/v1")
     
+    # OpenAI
+    openai_api_key: SecretStr = Field(default=None)
+    openai_base_url: str = Field(default="https://api.openai.com/v1")
+    
+    @property
+    def OPENAI_BASE_URL(self) -> str:
+        """Get OpenAI base URL - uses Helicone if configured, otherwise direct OpenAI"""
+        if self.helicone.is_configured:
+            return self.helicone_base_url
+        return self.openai_base_url
+    
     @property
     def database(self) -> PostgresSettings:
         return PostgresSettings(

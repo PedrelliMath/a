@@ -1,6 +1,7 @@
 from typing import Optional
 from uuid import UUID
 from pydantic_ai import Agent
+import os
 
 from app.ai.agents.message_validator import (
     AgentMessageValidator,
@@ -27,6 +28,7 @@ from app.ai.agents.schemas.chat import ChatContextIn, ChatContextOut, ChatContex
 from app.models.session import Session
 from app.logger import get_log
 from app.observability import HeliconeContext
+from app.config import settings
 
 logger = get_log(__name__)
 
@@ -154,14 +156,24 @@ class AgentOrquestrator:
             validation_prompt=message_validator.validation_prompt,
         )
 
+        # Skill Evaluator with fine-tuned model
+        skill_eval_config = self.agents_config.get("skill_evaluator", {})
+        model_id = skill_eval_config.get("model_name", "gpt-4o-mini")
+        
+        # Get base_url for helicone if enabled
+        base_url = None
+        if settings.helicone.is_configured:
+            base_url = settings.helicone.helicone_base_url
+            logger.info(f"Using Helicone base URL: {base_url}")
+        
         self.agent_skill_evaluator = AgentSkillEvaluator(
-            runner=Agent(
-                model=create_model("skill_evaluator"),
-                output_type=AgentSkillEvaluatorResponse
-            ),
-            system_prompt=skill_evaluator.system_prompt,
-            evaluation_prompt=skill_evaluator.evaluation_prompt,
+            model_id=model_id,
+            system_prompt_template=skill_evaluator.system_prompt_template,
+            api_key=os.getenv("OPENAI_API_KEY"),
+            base_url=base_url,
         )
+        
+        logger.info(f"SkillEvaluator initialized with model: {model_id}")
 
         self.agent_question_generator = AgentQuestionGenerator(
             runner=Agent(
@@ -549,6 +561,7 @@ class AgentOrquestrator:
             "current_question_set": self.current_question_set,
             "rubrics": self.context_in.rubrics,
             "bloom_levels": self.context_in.bloom_levels,
+            "session": self.session,  # Pass session for ID
         }
         
         result = await self.agent_skill_evaluator.run_evaluation(evaluation_context)
