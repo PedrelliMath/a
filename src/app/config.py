@@ -113,7 +113,7 @@ class Settings(BaseSettings):
     def auth(self) -> AuthenticationSettings:
         return AuthenticationSettings(
             jwks_uri=f"{self.protocol}://{self.keycloak_server_url}/{self.jwks_uri}",
-            issuer=f"{self.protocol}://{public_url}/{self.issuer}",
+            issuer=f"{self.protocol}://{self.keycloak_server_url}/{self.issuer}",
             jwt_algorithm=self.jwt_algorithm,
             jwt_audience=self.jwt_audience,
             jwt_scopes=self.jwt_scopes.split()

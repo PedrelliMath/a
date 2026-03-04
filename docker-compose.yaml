@@ -19,8 +19,9 @@ services:
       timeout: 5s
       retries: 5
     ports:
-      - "${APP_PORT}"
-    network_mode: host
+      - "${APP_PORT}:${APP_PORT}"
+    networks:
+      - chatbot_network
     
   postgres:
     profiles: ['default']
@@ -30,17 +31,17 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    command: ["postgres", "-c", "port=${POSTGRES_PORT}"]
     ports:
-      - "127.0.0.1:${POSTGRES_PORT}:${POSTGRES_PORT}"
+      - "${POSTGRES_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -p ${POSTGRES_PORT} -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    network_mode: host
+    networks:
+      - chatbot_network
     
   keycloak:
     profiles: ["default"]
@@ -50,26 +51,18 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://localhost:${POSTGRES_PORT}/${KEYCLOAK_DB_NAME}
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB_NAME}
       KC_DB_USERNAME: ${POSTGRES_USER}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
       KC_HOSTNAME: ${KEYCLOAK_SERVER_URL}
-
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_PROXY: edge
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "exec 3<>/dev/tcp/127.0.0.1/${KEYCLOAK_PORT}; \
-          echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3; \
-          if [ $? -eq 0 ]; then exit 0; else exit 1; fi"
-        ]
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/${KEYCLOAK_PORT}; echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; if [ $? -eq 0 ]; then exit 0; else exit 1; fi"]
       interval: 10s
       timeout: 5s
       retries: 15
-    network_mode: host
     volumes:
       - ./realm-export.json:/opt/keycloak/data/import/realm-export.json
     ports:
@@ -78,6 +71,12 @@ services:
       - start-dev
       - --http-port=${KEYCLOAK_PORT}
       - --import-realm
+    networks:
+      - chatbot_network
+
+networks:
+  chatbot_network:
+    driver: bridge
       
 volumes:
   postgres_data:
