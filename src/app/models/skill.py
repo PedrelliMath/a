@@ -168,7 +168,7 @@ model_config_dict = {
     },
     "skill_evaluator":{
         "model_name":"ft:gpt-4o-mini-2024-07-18:projeto-koru:bloom-evaluator:D3a4Fxf5",
-        "temperature":0.3,
+        "temperature":0.0,
         "max_tokens":1000
     }
 }
@@ -192,6 +192,10 @@ class SkillOutput(BaseModel):
     questions: dict = Field(
         examples=[example_questions_dict]
     )
+    agents_config: dict = Field(
+        examples=[model_config_dict]
+    )
+    active: bool
     created_at: datetime
     updated_at: datetime
 
@@ -258,6 +262,7 @@ class Skill(Base):
             "name": self.name, 
             "description": self.description,
             "questions": self.questions,
+            "agents_config": self.agents_config,
             "active": self.active,
             "created_at": self.created_at,
             "updated_at": self.updated_at

@@ -159,6 +159,7 @@ class AgentOrquestrator:
         # Skill Evaluator with fine-tuned model
         skill_eval_config = self.agents_config.get("skill_evaluator", {})
         model_id = skill_eval_config.get("model_name", "gpt-4o-mini")
+        temperature = skill_eval_config.get("temperature", 0.0)
         
         # Get base_url for helicone if enabled
         base_url = None
@@ -171,6 +172,7 @@ class AgentOrquestrator:
             system_prompt_template=skill_evaluator.system_prompt_template,
             api_key=os.getenv("OPENAI_API_KEY"),
             base_url=base_url,
+            temperature=temperature,
         )
         
         logger.info(f"SkillEvaluator initialized with model: {model_id}")
@@ -567,7 +569,8 @@ class AgentOrquestrator:
         result = await self.agent_skill_evaluator.run_evaluation(evaluation_context)
 
         classificacao = result.output.classificacao
-        justificativa = result.output.justificativa
+        adequacao_habilidades = result.output.adequacao_habilidades
+        adequacao_macro = result.output.adequacao_macro
         current_level = self.context_running.new_proficiency_level
 
         # Calcular novo nível baseado na classificação
@@ -583,13 +586,15 @@ class AgentOrquestrator:
         # Capturar output do evaluator
         self.agents_params["skill_evaluator"] = {
             "classification": classificacao,
-            "justification": justificativa,
+            "adequacao_habilidades": adequacao_habilidades,
+            "adequacao_macro": adequacao_macro,
             "expected_level": current_level,
             "achieved_level": new_level,
         }
 
         logger.info(
-            f"Avaliação: {classificacao} ({justificativa})\n"
+            f"Avaliação: {classificacao} (macro: {adequacao_macro})\n"
+            f"Habilidades: {adequacao_habilidades}\n"
             f"Nível: {current_level} -> {new_level}"
         )
 

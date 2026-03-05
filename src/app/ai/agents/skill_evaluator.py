@@ -20,7 +20,8 @@ logger = get_log(__name__)
 class AgentSkillEvaluatorResponse(BaseModel):
     """Response model for skill evaluator"""
     classificacao: int = Field(description="intervalo", ge=-1, le=1)
-    justificativa: str = Field(description="breve explicação")
+    adequacao_habilidades: str = Field(description="avaliação detalhada por habilidade")
+    adequacao_macro: str = Field(description="classificação macro")
 
 
 def normalize_skill_name(skill_name: str) -> str:
@@ -63,6 +64,7 @@ class AgentSkillEvaluator:
         system_prompt_template: str,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
+        temperature: float = 0.0,
     ):
         """
         Initialize skill evaluator.
@@ -72,9 +74,11 @@ class AgentSkillEvaluator:
             system_prompt_template: Template for system prompt
             api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
             base_url: Optional base URL for OpenAI API (e.g., Helicone proxy)
+            temperature: Temperature for model inference (default: 0.0 for deterministic)
         """
         self.model_id = model_id
         self.system_prompt_template = system_prompt_template
+        self.temperature = temperature
         
         # Initialize OpenAI client
         api_key = api_key or os.getenv("OPENAI_API_KEY")
@@ -94,7 +98,7 @@ class AgentSkillEvaluator:
         """
         Evaluate user response and classify bloom level.
         
-        New format for fine-tuned model. Expected output:
+        Expected output from fine-tuned model:
         {
             "adequacao_habilidades": "skill1:-1, skill2:0, skill3:1",
             "adequacao_macro": "-1"
@@ -111,12 +115,20 @@ class AgentSkillEvaluator:
                 - session (optional): Session object with id
                 
         Returns:
-            AgentSkillEvaluatorResponse with classification and justification
+            AgentSkillEvaluatorResponse with classification, adequacao_habilidades and adequacao_macro
         """
+        logger.info("=" * 80)
+        logger.info("🎯 SKILL EVALUATOR - INICIANDO AVALIAÇÃO")
+        logger.info("=" * 80)
+        
         # Extract required data from context
         resposta_usuario = evaluation_context["user_message"]
         nivel_esperado = evaluation_context["current_proficiency_level"]
         current_skill_group = evaluation_context["current_specific_skill"]
+        
+        logger.info(f"Nível esperado: {nivel_esperado}")
+        logger.info(f"Macrocompetência: {current_skill_group}")
+        logger.info(f"Resposta do usuário (preview): {resposta_usuario[:100]}...")
         
         # Get description for expected level
         descricao_nivel_esperado = evaluation_context["bloom_levels"][nivel_esperado]["descricao"]
@@ -155,7 +167,8 @@ class AgentSkillEvaluator:
             "registro_id": registro_id,
         }
         
-        logger.info(f"Dados classificacao: {json.dumps(dados_classificacao, ensure_ascii=False)}")
+        logger.info("📋 Dados de classificação:")
+        logger.info(json.dumps(dados_classificacao, ensure_ascii=False, indent=2))
         
         # Execute inference
         conteudo = await self._executar_inferencia(
@@ -163,13 +176,15 @@ class AgentSkillEvaluator:
             dados_classificacao=dados_classificacao
         )
         
-        # Parse response to extract classification and justification
-        classificacao, justificativa = self._parse_response(conteudo)
+        # Parse response to extract classification and skill details
+        classificacao, adequacao_habilidades, adequacao_macro = self._parse_response(conteudo)
         
-        logger.info(
-            f"SkillEvaluator result: classificacao={classificacao}, "
-            f"justificativa={justificativa[:100]}..."
-        )
+        logger.info("=" * 80)
+        logger.info("🎯 SKILL EVALUATOR - RESULTADO FINAL")
+        logger.info(f"Classificação: {classificacao} ({'-1=Abaixo, 0=Igual, 1=Acima'})")
+        logger.info(f"Adequação Macro: {adequacao_macro}")
+        logger.info(f"Adequação Habilidades: {adequacao_habilidades}")
+        logger.info("=" * 80)
         
         # Return structured response (mimicking pydantic_ai output structure)
         class Output:
@@ -178,7 +193,8 @@ class AgentSkillEvaluator:
         
         return Output(AgentSkillEvaluatorResponse(
             classificacao=classificacao,
-            justificativa=justificativa
+            adequacao_habilidades=adequacao_habilidades,
+            adequacao_macro=adequacao_macro
         ))
 
     async def _executar_inferencia(
@@ -203,113 +219,81 @@ class AgentSkillEvaluator:
             dados_classificacao=json.dumps(dados_classificacao, ensure_ascii=False)
         )
 
-        logger.info(f"SkillEvaluator system prompt: {system_message}")
-        logger.info(f"SkillEvaluator user message: {resposta_usuario}")
+        logger.info("📝 SYSTEM PROMPT:")
+        logger.info(system_message)
+        logger.info("")
+        logger.info("💬 USER MESSAGE:")
+        logger.info(resposta_usuario)
+        logger.info("")
+        logger.info(f"🤖 Chamando modelo fine-tuned (temperature={self.temperature})...")
 
         completion = await self.client.chat.completions.create(
             model=self.model_id,
+            temperature=self.temperature,
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": resposta_usuario.strip()},
             ],
         )
 
-        return completion.choices[0].message.content or ""
-
-    def _parse_response(self, response: str) -> tuple[int, str]:
-        """
-        Parse model response to extract classification and justification.
+        raw_response = completion.choices[0].message.content or ""
+        logger.info("")
+        logger.info("=" * 80)
+        logger.info("🔍 RESPOSTA BRUTA DO MODELO FINE-TUNED:")
+        logger.info("=" * 80)
+        logger.info(raw_response)
+        logger.info("=" * 80)
         
-        Expected format from fine-tuned model (new):
+        return raw_response
+
+    def _parse_response(self, response: str) -> tuple[int, str, str]:
+        """
+        Parse model response to extract classification and skill adequacy details.
+        
+        Expected format from fine-tuned model:
         {
             "adequacao_habilidades": "skill1:-1, skill2:0, skill3:1",
             "adequacao_macro": "-1"
-        }
-        
-        Or legacy format:
-        {
-            "adequacao_habilidades": "1",
-            "adequacao_habilidades_texto": "..."
         }
         
         Args:
             response: Raw model response
             
         Returns:
-            Tuple of (classification, justification)
+            Tuple of (classification, adequacao_habilidades, adequacao_macro)
         """
-        classificacao = 0  # default
-        justificativa = response.strip()
+        logger.info(f"📊 Parsing SkillEvaluator response: {response[:200]}...")
         
-        # Try to parse as JSON first
+        classificacao = 0  # default
+        adequacao_habilidades = ""
+        adequacao_macro = "0"
+        
+        # Try to parse as JSON
         try:
             data = json.loads(response)
             
-            # NEW FORMAT: adequacao_macro is the main classification
+            # Extract adequacao_macro (main classification)
             if "adequacao_macro" in data:
-                classificacao = int(data["adequacao_macro"])
-                
-                # Build justification from adequacao_habilidades
-                if "adequacao_habilidades" in data:
-                    justificativa = f"Avaliação das habilidades: {data['adequacao_habilidades']}"
-                else:
-                    justificativa = "Classificação baseada na adequação macro"
-                
-                # Ensure classification is within bounds
-                classificacao = max(-1, min(1, classificacao))
-                return classificacao, justificativa
+                adequacao_macro = str(data["adequacao_macro"])
+                classificacao = int(adequacao_macro)
             
-            # LEGACY FORMAT: adequacao_habilidades as classification
+            # Extract adequacao_habilidades (detailed skill assessment)
             if "adequacao_habilidades" in data:
-                classificacao = int(data["adequacao_habilidades"])
+                adequacao_habilidades = str(data["adequacao_habilidades"])
+            
+            # Ensure classification is within bounds
+            classificacao = max(-1, min(1, classificacao))
+            
+            logger.info(
+                f"✅ Parsed successfully: classificacao={classificacao}, "
+                f"adequacao_macro={adequacao_macro}, adequacao_habilidades={adequacao_habilidades}"
+            )
+            
+            return classificacao, adequacao_habilidades, adequacao_macro
                 
-                # Build justification from available fields
-                justificativa_parts = []
-                if "adequacao_habilidades_descricao" in data:
-                    justificativa_parts.append(data["adequacao_habilidades_descricao"])
-                if "adequacao_habilidades_texto" in data:
-                    justificativa_parts.append(data["adequacao_habilidades_texto"])
-                if "adequacao_habilidades_comentario" in data:
-                    justificativa_parts.append(data["adequacao_habilidades_comentario"])
-                
-                justificativa = " ".join(justificativa_parts) if justificativa_parts else ""
-                # Ensure classification is within bounds
-                classificacao = max(-1, min(1, classificacao))
-                return classificacao, justificativa
-                
-        except (json.JSONDecodeError, ValueError, KeyError):
-            pass
-        
-        # Fallback: Try to extract from plain text format
-        # Look for patterns like "Classificação: 0" or just a number at the start
-        match = re.search(r'(?:classificação|classification)?\s*:?\s*(-?[01])', response, re.IGNORECASE)
-        if match:
-            classificacao = int(match.group(1))
-            # Remove classification from justification
-            justificativa = re.sub(
-                r'(?:classificação|classification)\s*:?\s*-?[01]\s*', 
-                '', 
-                response, 
-                count=1,
-                flags=re.IGNORECASE
-            ).strip()
-        else:
-            # Try to find just a number at the start
-            match = re.match(r'^\s*(-?[01])\s*[:\-\.]?\s*(.*)', response, re.DOTALL)
-            if match:
-                classificacao = int(match.group(1))
-                justificativa = match.group(2).strip()
-        
-        # Clean justification
-        # Remove "Justificativa:" prefix if present
-        justificativa = re.sub(
-            r'^\s*(?:justificativa|justification)\s*:?\s*', 
-            '',
-            justificativa,
-            flags=re.IGNORECASE
-        ).strip()
-        
-        # Ensure classification is within bounds
-        classificacao = max(-1, min(1, classificacao))
-        
-        return classificacao, justificativa
+        except (json.JSONDecodeError, ValueError, KeyError) as e:
+            logger.warning(f"⚠️ Failed to parse skill evaluator response as JSON: {e}")
+            logger.warning(f"Raw response: {response}")
+            
+            # Return default values
+            return 0, response.strip(), "0"

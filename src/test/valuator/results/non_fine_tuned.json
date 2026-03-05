@@ -1,0 +1,64 @@
+{
+  "id": "044a5444-0ab8-4e91-8559-0d906e77e84e",
+  "session_id": "8df5fa3a-3649-4d9e-a277-e9c388c185e3",
+  "user_id": "0ed4ee5e-947b-4504-80fa-6bb9d3b3d2b2",
+  "skill_id": "98a74158-45e2-4b69-852f-61a5b6f2c17f",
+  "iterations": [
+    {
+      "macro": "Autoconhecimento",
+      "question": "Olá, usuário 0ed4ee5e-947b-4504-80fa-6bb9d3b3d2b2! Seja bem-vindo! Eu sou um agente de IA avaliador de habilidades da Koru e estou aqui para conduzir sua avaliação de liderança. \n\nPor favor, sinta-se à vontade para compartilhar suas experiências, mas evite discutir dados sensíveis, e lembre-se de que seus dados estão protegidos pela lei LGPD. \n\nVamos abordar os seguintes temas durante nossa conversa: Autoconhecimento, Colaboração, Empatia, Conhecimento de Negócio, Curiosidade, Fluência Digital, Visão de Longo Prazo, Dados e Inteligência Artificial, Orientação a Serviços e ao Cliente, e Solução de Problemas.\n\nSe em algum momento você se sentir sobrecarregado com os tópicos, não se preocupe! Se suas respostas forem boas, eu poderei avançar rapidamente para o próximo assunto. \n\nComeçando com a primeira pergunta: Como você percebe desalinhamentos entre o que acredita e como age?",
+      "response": "O desalinhamento entre equipes é percebido por mim a partir de conversas individuais entre membros de mesma equipe de forma esporádica, por vezes, o gestor não repassa alguma informação ao subordinado, dessa maneira, crio grupos de alinhamento ou formas centralizadas de compartilhar o conhecimento, como via email, chats no teams ou documentação em base de conhecimento quando necessário",
+      "achieved_bloom_level": "avaliar",
+      "expected_bloom_level": "analisar"
+    },
+    {
+      "macro": "Autoconhecimento",
+      "question": "Você mencionou a importância de manter a comunicação clara dentro das equipes! Isso me leva a pensar sobre seus objetivos. Como você revisa e adapta seus objetivos pessoais e profissionais? Como suas experiências com desalinhamentos influenciam essas adaptações?",
+      "response": "Realizo a revisão dos meus objetivos por meio de feedbacks constantes e análise de métricas, recalibrando a rota sempre que os resultados divergem das metas. Os desalinhamentos me ensinam a incorporar camadas extras de transparência no planejamento pessoal e profissional. Assim, utilizo essas falhas para criar marcos (milestones) mais claros e centralizar o fluxo de informações. O foco é garantir que a execução esteja sempre documentada e acessível, evitando que o conhecimento isolado prejudique o progresso.",
+      "achieved_bloom_level": "criar",
+      "expected_bloom_level": "avaliar"
+    },
+    {
+      "macro": "Colaboração, Empatia",
+      "question": "Você traz uma perspectiva rica ao enfatizar o valor do feedback e da transparência no seu processo de ajuste de objetivos! Isso me faz querer explorar um pouco mais. Quais padrões você já identificou que dificultavam a colaboração entre sua equipe? Como isso se relaciona com as estratégias que você já implementou para melhorar a comunicação?",
+      "response": "Identifiquei que o principal padrão dificultador é a retenção de informação por lideranças intermediárias, o que gera o \"silenciamento\" de processos e dependência excessiva de indivíduos. Isso fragmenta a colaboração, pois as pontas da operação trabalham com contextos diferentes.  Minha estratégia de centralizar o conhecimento em bases documentadas e chats integrados ataca diretamente esse problema. Ao democratizar o acesso ao dado, elimino o gargalo do gestor como único transmissor, garantindo que a comunicação seja fluida, auditável e que todos os membros tenham a mesma visão técnica para colaborar com autonomia.",
+      "achieved_bloom_level": "avaliar",
+      "expected_bloom_level": "analisar"
+    },
+    {
+      "macro": "Colaboração, Empatia",
+      "question": "Como você mede se a colaboração está dando certo?",
+      "response": "Olha, eu meço se a colaboração está indo bem basicamente vendo se o pessoal parou de me perguntar as mesmas coisas toda hora. Se o grupo do Teams não está parado e os e-mails estão sendo respondidos, para mim é um sinal de que o conhecimento está girando.  Também observo se as entregas estão saindo sem eu precisar intervir direto no conflito entre as pessoas. Se a documentação que eu criei está sendo lida e ninguém está \"batendo cabeça\" por falta de informação centralizada, entendo que a estratégia de alinhamento funcionou e o time está andando sozinho.",
+      "achieved_bloom_level": "criar",
+      "expected_bloom_level": "avaliar"
+    },
+    {
+      "macro": "Conhecimento de Negócio, Curiosidade, Fluência Digital, Visão de Longo Prazo",
+      "question": "Que interessante sua abordagem em revisar objetivos! Sobre a sua nova pergunta, você poderia compartilhar como você antecipa possíveis rupturas no seu setor? Como a transparência que você mencionou se encaixa nessa antecipação?",
+      "response": "Eu antecipo as rupturas observando o fluxo de mensagens e a frequência de erros por falta de contexto nos grupos de trabalho. Quando percebo que as pessoas estão com dúvidas repetitivas ou que informações importantes não estão chegando a todos, entendo que o processo vai travar em breve.  Minha estratégia de transparência ajuda nisso porque, ao centralizar tudo em documentos ou canais comuns, eu diminuo a dependência de uma única pessoa para que o trabalho ande. Se a informação está acessível, o risco de uma interrupção grave diminui, pois o time consegue se guiar sozinho mesmo se houver uma falha de comunicação pontual.",
+      "achieved_bloom_level": "avaliar",
+      "expected_bloom_level": "analisar"
+    },
+    {
+      "macro": "Conhecimento de Negócio, Curiosidade, Fluência Digital, Visão de Longo Prazo",
+      "question": "Considerando o que você compartilhou sobre revisão contínua de objetivos, como você avalia se uma estratégia futura é viável? Que aspectos você considera fundamentais nessa avaliação?",
+      "response": "O Gemini disse Para avaliar se uma estratégia futura é viável, eu busco identificar e listar os recursos que já temos disponíveis no momento. Eu verifico se as ferramentas de comunicação, como o Teams e as bases de conhecimento, estão prontas para serem usadas e relembro quais metas funcionaram em situações parecidas no passado.",
+      "achieved_bloom_level": "criar",
+      "expected_bloom_level": "avaliar"
+    },
+    {
+      "macro": "Dados e Inteligência Artificial, Orientação a Serviços e ao Cliente, Solução de Problemas",
+      "question": "Você está trazendo uma abordagem muito estratégica! Dividir problemas complexos em partes menores é essencial para uma solução eficaz. Como você faz isso na prática? Poderia compartilhar um exemplo de uma situação em que essa metodologia foi útil para você?",
+      "response": "Para dividir problemas complexos, eu interpreto o objetivo final e o traduzo em etapas que façam sentido para o dia a dia, classificando as tarefas por ordem de dependência. Na prática, explico para a equipe o \"porquê\" de cada parte para que todos compreendam como o trabalho individual impacta o todo.  Um exemplo foi quando implementei uma base de conhecimento centralizada: em vez de apenas migrar dados, organizei as informações por categorias lógicas de uso. Isso permitiu que o time entendesse a mudança, comparasse com o método antigo e visse que a solução fragmentada era muito mais fácil de manter e seguir.",
+      "achieved_bloom_level": "avaliar",
+      "expected_bloom_level": "analisar"
+    },
+    {
+      "macro": "Dados e Inteligência Artificial, Orientação a Serviços e ao Cliente, Solução de Problemas",
+      "question": "Você trouxe à tona uma abordagem muito eficiente para revisão e adaptação de objetivos! E se pensássemos em como essa sua prática pode se conectar ao processo de avaliar soluções para problemas estratégicos? Como você avaliou diferentes soluções para um problema estratégico no passado? Isso pode nos levar a um entendimento mais profundo de sua abordagem.",
+      "response": "O Gemini disse Para avaliar soluções estratégicas, eu aplico a mesma lógica de métricas que uso na revisão de objetivos, executando testes em cenários de baixa escala antes da expansão. Um exemplo prático foi quando utilizei protótipos em paralelo com três ferramentas de comunicação para medir o tempo de resposta e a taxa de adoção em equipes reduzidas. Implementei critérios de sucesso claros e calculei qual delas reduzia efetivamente a retenção de informação. Ao operar com dados reais, eu demonstro a viabilidade da solução e garanto que a escolha estratégica resolva o problema de forma pragmática e fundamentada.",
+      "achieved_bloom_level": "criar",
+      "expected_bloom_level": "avaliar"
+    }
+  ]
+}
