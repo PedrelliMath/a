@@ -41,6 +41,7 @@ class AgentMessageValidator:
     @track_helicone(agent_type="message_validator")
     async def run_validation(self, validation_context: dict):
         final_prompt = self.validation_prompt.format(
+            message_history=validation_context['message_history'],
             question=validation_context['question'],
             answer=validation_context['user_message'],
         )
