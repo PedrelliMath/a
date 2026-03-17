@@ -167,7 +167,7 @@ model_config_dict = {
         "max_tokens":1000
     },
     "skill_evaluator":{
-        "model_name":"ft:gpt-4o-mini-2024-07-18:projeto-koru:bloom-evaluator:D3a4Fxf5",
+        "model_name":"ft:gpt-4.1-mini-2025-04-14:projeto-koru:bloom-evaluator:DK4dkBG2",
         "temperature":0.0,
         "max_tokens":1000
     }

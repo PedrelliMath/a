@@ -55,6 +55,54 @@ def parse_skill_group(skill_group: str) -> list[str]:
     return [normalize_skill_name(s) for s in skills]
 
 
+# Bloom levels ordered from lowest to highest
+BLOOM_ORDER = [
+    "lembrar",
+    "compreender",
+    "aplicar",
+    "analisar",
+    "avaliar",
+    "criar",
+]
+
+
+def _parse_achieved_levels(achieved: str) -> list[str]:
+    """Parse achieved bloom levels, supporting formats like 'avaliar/criar'."""
+    if not achieved:
+        return []
+
+    candidates = [p.strip().lower() for p in re.split(r"[/|,]", achieved) if p.strip()]
+    return [c for c in candidates if c in BLOOM_ORDER]
+
+
+def compare_bloom_levels(expected: str, achieved: str) -> int:
+    """
+    Compare two bloom level strings and return adequacao:
+      -1 -> achieved is below expected
+       0 -> achieved equals expected
+       1 -> achieved is above expected
+
+    If level not recognized, assume equal (0).
+    """
+    try:
+        exp_idx = BLOOM_ORDER.index(expected.lower())
+    except ValueError:
+        return 0
+
+    achieved_levels = _parse_achieved_levels(achieved)
+    if not achieved_levels:
+        return 0
+
+    achieved_indexes = [BLOOM_ORDER.index(level) for level in achieved_levels]
+    ach_idx = min(achieved_indexes, key=lambda idx: abs(idx - exp_idx))
+
+    if ach_idx < exp_idx:
+        return -1
+    if ach_idx == exp_idx:
+        return 0
+    return 1
+
+
 class AgentSkillEvaluator:
     """Skill evaluator using fine-tuned OpenAI model"""
     
@@ -130,41 +178,12 @@ class AgentSkillEvaluator:
         logger.info(f"Macrocompetência: {current_skill_group}")
         logger.info(f"Resposta do usuário (preview): {resposta_usuario[:100]}...")
         
-        # Get description for expected level
-        descricao_nivel_esperado = evaluation_context["bloom_levels"][nivel_esperado]["descricao"]
-        
-        # Get the question
-        pergunta_aferidora = evaluation_context.get("question", "")
-        if not pergunta_aferidora and "rubrics" in evaluation_context:
-            # Fallback: get first question from rubrics
-            rubrics = evaluation_context["rubrics"]
-            if current_skill_group in rubrics:
-                questions = rubrics[current_skill_group].get(nivel_esperado, [])
-                if questions and isinstance(questions, list):
-                    pergunta_aferidora = questions[0]
-        
         # Parse skill group into individual skills
         individual_skills = parse_skill_group(current_skill_group)
         
-        # Build habilidades_macro dict - all skills start at the same level
-        habilidades_macro = {
-            skill: nivel_esperado for skill in individual_skills
-        }
-        
-        # Get session ID if available
-        session = evaluation_context.get("session")
-        registro_id = str(session.id) if session else "unknown"
-        
         # Build dados_classificacao in new format
         dados_classificacao = {
-            "nivel_esperado": nivel_esperado,
-            "descricao_nivel_esperado": descricao_nivel_esperado,
-            "pergunta_aferidora": pergunta_aferidora,
-            "habilidades_macro": habilidades_macro,
-            "nome_grupo": normalize_skill_name(current_skill_group),
-            "nome_habilidade": individual_skills[0] if individual_skills else "unknown",
-            "nivel_habilidade": nivel_esperado,
-            "registro_id": registro_id,
+            "habilidades_macro": individual_skills,
         }
         
         logger.info("📋 Dados de classificação:")
@@ -176,8 +195,38 @@ class AgentSkillEvaluator:
             dados_classificacao=dados_classificacao
         )
         
-        # Parse response to extract classification and skill details
-        classificacao, adequacao_habilidades, adequacao_macro = self._parse_response(conteudo)
+        # Parse response to extract achieved bloom levels per skill
+        achieved_levels, _raw_output = self._parse_response(conteudo)
+
+        # Compute adequacao per skill by comparing achieved vs expected
+        adequacoes = {}
+        for skill, achieved in achieved_levels.items():
+            adequ = compare_bloom_levels(nivel_esperado, achieved)
+            adequacoes[skill] = adequ
+
+        # Build adequacao_habilidades string
+        adequacao_habilidades = ", ".join([f"{k}:{v}" for k, v in adequacoes.items()])
+
+        # Determine adequacao_macro by majority vote over adequacoes values
+        if adequacoes:
+            counts = { -1: 0, 0: 0, 1: 0 }
+            for v in adequacoes.values():
+                counts[v] = counts.get(v, 0) + 1
+            # pick the sign with highest count (ties: prefer 0, then 1, then -1)
+            max_count = max(counts.values())
+            winners = [k for k, v in counts.items() if v == max_count]
+            if 0 in winners:
+                macro_vote = 0
+            elif -1 in winners:
+                macro_vote = -1
+            else:
+                macro_vote = 1
+
+            adequacao_macro = str(macro_vote)
+            classificacao = int(adequacao_macro)
+        else:
+            adequacao_macro = "0"
+            classificacao = 0
         
         logger.info("=" * 80)
         logger.info("🎯 SKILL EVALUATOR - RESULTADO FINAL")
@@ -246,54 +295,57 @@ class AgentSkillEvaluator:
         
         return raw_response
 
-    def _parse_response(self, response: str) -> tuple[int, str, str]:
+    def _parse_response(self, response: str) -> tuple[dict, str]:
         """
-        Parse model response to extract classification and skill adequacy details.
-        
-        Expected format from fine-tuned model:
-        {
-            "adequacao_habilidades": "skill1:-1, skill2:0, skill3:1",
-            "adequacao_macro": "-1"
-        }
-        
-        Args:
-            response: Raw model response
-            
+        Parse model response to extract achieved bloom levels per skill.
+
+        Expected model JSON:
+        {"habilidades": {"colaboracao": "analisar", "empatia": "avaliar"}}
+
         Returns:
-            Tuple of (classification, adequacao_habilidades, adequacao_macro)
+            Tuple of (achieved_levels_dict, raw_response_str)
         """
         logger.info(f"📊 Parsing SkillEvaluator response: {response[:200]}...")
-        
-        classificacao = 0  # default
-        adequacao_habilidades = ""
-        adequacao_macro = "0"
-        
-        # Try to parse as JSON
+
+        achieved_levels: dict = {}
+
+        # Try to parse as JSON first
         try:
             data = json.loads(response)
-            
-            # Extract adequacao_macro (main classification)
-            if "adequacao_macro" in data:
-                adequacao_macro = str(data["adequacao_macro"])
-                classificacao = int(adequacao_macro)
-            
-            # Extract adequacao_habilidades (detailed skill assessment)
-            if "adequacao_habilidades" in data:
-                adequacao_habilidades = str(data["adequacao_habilidades"])
-            
-            # Ensure classification is within bounds
-            classificacao = max(-1, min(1, classificacao))
-            
-            logger.info(
-                f"✅ Parsed successfully: classificacao={classificacao}, "
-                f"adequacao_macro={adequacao_macro}, adequacao_habilidades={adequacao_habilidades}"
-            )
-            
-            return classificacao, adequacao_habilidades, adequacao_macro
-                
-        except (json.JSONDecodeError, ValueError, KeyError) as e:
-            logger.warning(f"⚠️ Failed to parse skill evaluator response as JSON: {e}")
-            logger.warning(f"Raw response: {response}")
-            
-            # Return default values
-            return 0, response.strip(), "0"
+
+            # If model returned top-level 'habilidades' dict
+            if isinstance(data, dict) and "habilidades" in data:
+                hab = data["habilidades"]
+                if isinstance(hab, dict):
+                    for k, v in hab.items():
+                        achieved_levels[normalize_skill_name(k)] = str(v)
+                elif isinstance(hab, str):
+                    # fallback to parsing string
+                    raw = hab
+                    parts = [p.strip() for p in raw.split(',') if p.strip()]
+                    for p in parts:
+                        if ':' in p:
+                            key, val = p.split(':', 1)
+                            achieved_levels[normalize_skill_name(key)] = val.strip()
+
+            # Otherwise, if the JSON itself is a mapping of skills -> levels
+            elif isinstance(data, dict):
+                # try to interpret keys as skills
+                for k, v in data.items():
+                    if isinstance(v, str):
+                        achieved_levels[normalize_skill_name(k)] = v
+
+        except json.JSONDecodeError:
+            logger.debug("Resposta não é JSON, tentando parse heurístico...")
+
+        # Heuristic: try to parse patterns like 'colaboracao:analisar, empatia:avaliar'
+        if not achieved_levels and isinstance(response, str):
+            parts = [p.strip() for p in re.split(r',|;|\n', response) if p.strip()]
+            for p in parts:
+                if ':' in p:
+                    key, val = p.split(':', 1)
+                    achieved_levels[normalize_skill_name(key)] = val.strip()
+
+        logger.info(f"✅ Achieved levels parsed: {achieved_levels}")
+
+        return achieved_levels, response.strip()
