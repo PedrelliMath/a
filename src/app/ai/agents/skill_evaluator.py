@@ -235,6 +235,17 @@ class AgentSkillEvaluator:
         logger.info(f"Adequação Habilidades: {adequacao_habilidades}")
         logger.info("=" * 80)
         
+            # Log model id and session info for debugging finetune evaluation
+        logger.info(f"Model usado para avaliação finetune: {self.model_id}")
+        session_obj = evaluation_context.get("session") if isinstance(evaluation_context, dict) else None
+        session_id = None
+        if session_obj:
+            if isinstance(session_obj, dict):
+                session_id = session_obj.get("id") or session_obj.get("session_id")
+            else:
+                session_id = getattr(session_obj, "id", None) or getattr(session_obj, "session_id", None)
+        if session_id:
+            logger.info(f"Session ID: {session_id}")
         # Return structured response (mimicking pydantic_ai output structure)
         class Output:
             def __init__(self, data: AgentSkillEvaluatorResponse):
