@@ -35,6 +35,31 @@ class EvaluationService:
         print(f"INICIANDO EXTRAÇÃO - Total de mensagens: {len(session.messages)}")
         print(f"{'='*80}\n")
         
+        def append_iteration(bot_params: dict | None):
+            nonlocal pending_question, pending_response
+
+            if not (pending_question and pending_response):
+                return
+
+            params = bot_params or {}
+            skill_evaluator = params.get("skill_evaluator", {}) or {}
+            achieved = skill_evaluator.get("achieved_level") or params.get("new_proficiency_level")
+
+            minimal_iteration = {
+                "question": pending_question["question"],
+                "response": pending_response,
+                "expected_bloom_level": pending_question["expected_bloom_level"],
+                "achieved_bloom_level": achieved,
+                "macro": pending_question["macro"],
+            }
+            iterations.append(minimal_iteration)
+
+            print(f"✅ ADICIONANDO ITERAÇÃO: {minimal_iteration}")
+            print(f"📊 Total de iterações agora: {len(iterations)}")
+
+            pending_question = None
+            pending_response = None
+
         for idx, msg in enumerate(session.messages):
             print(f"\n--- Mensagem {idx + 1} ---")
             
@@ -73,21 +98,9 @@ class EvaluationService:
                 elif is_closing:
                     print("🏁 AÇÃO: CLOSING")
                     if pending_question and pending_response:
-                        achieved = params.get("skill_evaluator", {}).get("achieved_level")
                         print(f"✅ ADICIONANDO ÚLTIMA ITERAÇÃO:")
                         print(f"   - expected: {pending_question['expected_bloom_level']}")
-                        print(f"   - achieved: {achieved}")
-                        
-                        iterations.append({
-                            "question": pending_question["question"],
-                            "response": pending_response,
-                            "expected_bloom_level": pending_question["expected_bloom_level"],
-                            "achieved_bloom_level": achieved,
-                            "macro": pending_question["macro"]
-                        })
-                        print(f"📊 Total de iterações agora: {len(iterations)}")
-                        pending_question = None
-                        pending_response = None
+                        append_iteration(params)
                     else:
                         print("⚠️  Não há pergunta/resposta pendente para finalizar")
                         print(f"   - pending_question existe? {pending_question is not None}")
@@ -97,19 +110,9 @@ class EvaluationService:
                     print("❓ AÇÃO: NOVA PERGUNTA")
                     
                     if pending_question and pending_response:
-                        achieved = params.get("skill_evaluator", {}).get("achieved_level")
                         print(f"✅ ADICIONANDO ITERAÇÃO:")
                         print(f"   - expected: {pending_question['expected_bloom_level']}")
-                        print(f"   - achieved: {achieved}")
-                        
-                        iterations.append({
-                            "question": pending_question["question"],
-                            "response": pending_response,
-                            "expected_bloom_level": pending_question["expected_bloom_level"],
-                            "achieved_bloom_level": achieved,
-                            "macro": pending_question["macro"]
-                        })
-                        print(f"📊 Total de iterações agora: {len(iterations)}")
+                        append_iteration(params)
                     else:
                         print("⚠️  Sem pergunta/resposta pendente para adicionar")
                     
@@ -149,7 +152,7 @@ class EvaluationService:
                 print(f"  - Expected: {it['expected_bloom_level']}")
                 print(f"  - Achieved: {it['achieved_bloom_level']}")
                 print(f"  - Macro: {it['macro']}")
-        
+
         return iterations
 
     def create_evaluation(self, current_user: CurrentUser, session_id) -> EvaluationOutput:

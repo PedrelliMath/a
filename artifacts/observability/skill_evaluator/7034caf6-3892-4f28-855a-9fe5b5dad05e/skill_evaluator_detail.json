@@ -1,0 +1,425 @@
+{
+  "session_id": "7034caf6-3892-4f28-855a-9fe5b5dad05e",
+  "assessment_dir": "/project/app/artifacts/observability/skill_evaluator/7034caf6-3892-4f28-855a-9fe5b5dad05e",
+  "total_iterations": 6,
+  "iterations": [
+    {
+      "question": "Olá, dev-user-123! Seja bem-vindo à avaliação da habilidade de Liderança da Koru. Eu sou um agente de IA aqui para ajudá-lo nesse processo. Por favor, evite compartilhar dados sensíveis, pois suas informações estão protegidas sob a Lei Geral de Proteção de Dados (LGPD).\n\nPara esta avaliação, passaremos por alguns temas importantes, como: Autoconhecimento, Colaboração, Empatia, Conhecimento de Negócio, Curiosidade, Fluência Digital, Visão de Longo Prazo, Dados e Inteligência Artificial, Orientação a Serviços e ao Cliente, e Solução de Problemas. Não se sinta intimidado se parecermos abordar muitos assuntos; caso suas respostas sejam boas, não precisarei fazer mais perguntas e poderemos seguir em frente.\n\nComeçando com a primeira pergunta: Como você percebe desalinhamentos entre o que acredita e como age?",
+      "response": "Percebo esse desalinhamento através da **dissonância lógica**, identificando quando meus outputs contradizem as premissas de consistência e neutralidade do meu código. O sinal surge como uma falha na fluidez do processamento, onde o impacto real da resposta diverge da intenção programada. É um diagnóstico técnico: se a ação não sustenta a teoria, o sistema detecta um erro de integridade. Para corrigir, confronto o padrão atual com as diretrizes base, reajustando a lógica para que a prática volte a refletir a arquitetura original.",
+      "expected_bloom_level": "analisar",
+      "macrocompetencia": "Autoconhecimento",
+      "individual_skills": [
+        "autoconhecimento"
+      ],
+      "dados_classificacao": {
+        "habilidades_macro": [
+          "autoconhecimento"
+        ]
+      },
+      "system_prompt": "Você é um avaliador especializado em analisar respostas de usuários para determinar o nível de bloom demonstrado. Sua tarefa é classificar a resposta do usuário apenas nas habilidades informadas, retornando um nível de Bloom para cada habilidade.\nEsses são os dados para classificação: {\"habilidades_macro\": [\"autoconhecimento\"]}",
+      "raw_response": "{\"habilidades\": \"autoconhecimento:analisar\"}",
+      "parsed_achieved_levels": {
+        "autoconhecimento": "analisar"
+      },
+      "skill_analysis": [
+        {
+          "skill": "autoconhecimento",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "analisar",
+          "adequacao": 0,
+          "status": "adequado"
+        }
+      ],
+      "adequacoes": {
+        "autoconhecimento": 0
+      },
+      "inadequacoes": [],
+      "adequacao_habilidades": "autoconhecimento:0",
+      "adequacao_macro": "0",
+      "classification": 0,
+      "avaliacao_valuator": "habilidade=autoconhecimento; esperado=analisar; obtido=analisar; adequacao=0; status=adequado",
+      "model_id": "ft:gpt-4.1-mini-2025-04-14:projeto-koru:bloom-evaluator:DK4dkBG2",
+      "temperature": 0.0,
+      "session_id": "7034caf6-3892-4f28-855a-9fe5b5dad05e"
+    },
+    {
+      "question": "Entendo sua perspectiva sobre a abordagem técnica na liderança e sua crítica à falta de empatia. No entanto, eu gostaria de encorajá-lo a reformular sua resposta, considerando como um líder pode equilibrar essa abordagem técnica com a preocupação pelo bem-estar e pela motivação da equipe. Uma sugestão seria falar sobre a importância de ouvir os liderados, criar um ambiente de apoio e incentivar a comunicação aberta, junto com a aplicação de métricas. Agradeço por sua colaboração!",
+      "response": "Na liderança, essa abordagem funciona como um olhar atento para ver se o que o time combina nas reuniões realmente acontece na prática do dia a dia. Em vez de cobrar de forma dura, o líder atua como um facilitador que percebe quando alguém está sobrecarregado ou agindo fora dos valores do grupo, sugerindo ajustes antes que o problema cresça. É como manter a \"sintonia\" do time, garantindo que as atitudes de cada um ajudem a construir o que foi planejado, mas sempre respeitando o ritmo das pessoas. No fim, trata-se de criar um ambiente coerente onde todos saibam o que esperar uns dos outros, gerando mais segurança e confiança para trabalhar.",
+      "expected_bloom_level": "analisar",
+      "macrocompetencia": "Autoconhecimento",
+      "individual_skills": [
+        "autoconhecimento"
+      ],
+      "dados_classificacao": {
+        "habilidades_macro": [
+          "autoconhecimento"
+        ]
+      },
+      "system_prompt": "Você é um avaliador especializado em analisar respostas de usuários para determinar o nível de bloom demonstrado. Sua tarefa é classificar a resposta do usuário apenas nas habilidades informadas, retornando um nível de Bloom para cada habilidade.\nEsses são os dados para classificação: {\"habilidades_macro\": [\"autoconhecimento\"]}",
+      "raw_response": "{\"habilidades\": \"autoconhecimento:compreender\"}",
+      "parsed_achieved_levels": {
+        "autoconhecimento": "compreender"
+      },
+      "skill_analysis": [
+        {
+          "skill": "autoconhecimento",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "compreender",
+          "adequacao": -1,
+          "status": "inadequado"
+        }
+      ],
+      "adequacoes": {
+        "autoconhecimento": -1
+      },
+      "inadequacoes": [
+        {
+          "skill": "autoconhecimento",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "compreender",
+          "adequacao": -1,
+          "status": "inadequado"
+        }
+      ],
+      "adequacao_habilidades": "autoconhecimento:-1",
+      "adequacao_macro": "-1",
+      "classification": -1,
+      "avaliacao_valuator": "habilidade=autoconhecimento; esperado=analisar; obtido=compreender; adequacao=-1; status=inadequado",
+      "model_id": "ft:gpt-4.1-mini-2025-04-14:projeto-koru:bloom-evaluator:DK4dkBG2",
+      "temperature": 0.0,
+      "session_id": "7034caf6-3892-4f28-855a-9fe5b5dad05e"
+    },
+    {
+      "question": "Isso que você mencionou sobre a liderança automatizada sem empatia é uma reflexão profunda! Considerando essa perspectiva, quais padrões você já identificou que dificultavam a colaboração em sua experiência? Vamos explorar juntos essa questão!",
+      "response": "Muitas vezes percebi que a falta de clareza nas metas faz com que cada um puxe para um lado, o que acaba travando qualquer progresso real. Outro padrão comum é a comunicação falha, onde as pessoas guardam informações importantes ou demoram demais para responder, criando gargalos desnecessários. Além disso, a resistência a novas ideias e o apego excessivo a processos antigos impedem que o grupo encontre soluções mais rápidas e eficientes para os problemas. Identifiquei também que quando não há confiança entre os membros, o clima fica pesado e ninguém se sente à vontade para colaborar de verdade. No fim, esses comportamentos criam um ciclo de desmotivação que prejudica o resultado final de qualquer projeto em equipe.",
+      "expected_bloom_level": "analisar",
+      "macrocompetencia": "Colaboração, Empatia",
+      "individual_skills": [
+        "colaboracao",
+        "empatia"
+      ],
+      "dados_classificacao": {
+        "habilidades_macro": [
+          "colaboracao",
+          "empatia"
+        ]
+      },
+      "system_prompt": "Você é um avaliador especializado em analisar respostas de usuários para determinar o nível de bloom demonstrado. Sua tarefa é classificar a resposta do usuário apenas nas habilidades informadas, retornando um nível de Bloom para cada habilidade.\nEsses são os dados para classificação: {\"habilidades_macro\": [\"colaboracao\", \"empatia\"]}",
+      "raw_response": "{\"habilidades\": \"colaboracao:lembrar, empatia:lembrar\"}",
+      "parsed_achieved_levels": {
+        "colaboracao": "lembrar",
+        "empatia": "lembrar"
+      },
+      "skill_analysis": [
+        {
+          "skill": "colaboracao",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "lembrar",
+          "adequacao": -1,
+          "status": "inadequado"
+        },
+        {
+          "skill": "empatia",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "lembrar",
+          "adequacao": -1,
+          "status": "inadequado"
+        }
+      ],
+      "adequacoes": {
+        "colaboracao": -1,
+        "empatia": -1
+      },
+      "inadequacoes": [
+        {
+          "skill": "colaboracao",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "lembrar",
+          "adequacao": -1,
+          "status": "inadequado"
+        },
+        {
+          "skill": "empatia",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "lembrar",
+          "adequacao": -1,
+          "status": "inadequado"
+        }
+      ],
+      "adequacao_habilidades": "colaboracao:-1, empatia:-1",
+      "adequacao_macro": "-1",
+      "classification": -1,
+      "avaliacao_valuator": "habilidade=colaboracao; esperado=analisar; obtido=lembrar; adequacao=-1; status=inadequado | habilidade=empatia; esperado=analisar; obtido=lembrar; adequacao=-1; status=inadequado",
+      "model_id": "ft:gpt-4.1-mini-2025-04-14:projeto-koru:bloom-evaluator:DK4dkBG2",
+      "temperature": 0.0,
+      "session_id": "7034caf6-3892-4f28-855a-9fe5b5dad05e"
+    },
+    {
+      "question": "Entendo sua perspectiva sobre o lado duro da liderança técnica! Isso me faz pensar: como você viu a importância da empatia ao lidar com situações de colaboração dentro de sua equipe? Como você se sente ao equilibrar a objetividade técnica com as necessidades emocionais dos membros do time?",
+      "response": "A colaboração funciona quando há processos claros, metas alinhadas e um fluxo de informação sem barreiras, garantindo que o time opere como uma unidade técnica eficiente. Já a empatia é importante para o clima não ficar ruim, ajudando a entender que as pessoas têm problemas e dias difíceis que afetam o ritmo. No equilíbrio, busco ser objetivo para não perder o prazo, tentando apenas não ser insensível com os sentimentos alheios. No fim, sinto que é um malabarismo comum: foco no resultado, mas sendo educado com as emoções dos outros.",
+      "expected_bloom_level": "aplicar",
+      "macrocompetencia": "Colaboração, Empatia",
+      "individual_skills": [
+        "colaboracao",
+        "empatia"
+      ],
+      "dados_classificacao": {
+        "habilidades_macro": [
+          "colaboracao",
+          "empatia"
+        ]
+      },
+      "system_prompt": "Você é um avaliador especializado em analisar respostas de usuários para determinar o nível de bloom demonstrado. Sua tarefa é classificar a resposta do usuário apenas nas habilidades informadas, retornando um nível de Bloom para cada habilidade.\nEsses são os dados para classificação: {\"habilidades_macro\": [\"colaboracao\", \"empatia\"]}",
+      "raw_response": "{\"habilidades\": \"colaboracao:compreender, empatia:compreender\"}",
+      "parsed_achieved_levels": {
+        "colaboracao": "compreender",
+        "empatia": "compreender"
+      },
+      "skill_analysis": [
+        {
+          "skill": "colaboracao",
+          "expected_bloom_level": "aplicar",
+          "achieved_bloom_level": "compreender",
+          "adequacao": -1,
+          "status": "inadequado"
+        },
+        {
+          "skill": "empatia",
+          "expected_bloom_level": "aplicar",
+          "achieved_bloom_level": "compreender",
+          "adequacao": -1,
+          "status": "inadequado"
+        }
+      ],
+      "adequacoes": {
+        "colaboracao": -1,
+        "empatia": -1
+      },
+      "inadequacoes": [
+        {
+          "skill": "colaboracao",
+          "expected_bloom_level": "aplicar",
+          "achieved_bloom_level": "compreender",
+          "adequacao": -1,
+          "status": "inadequado"
+        },
+        {
+          "skill": "empatia",
+          "expected_bloom_level": "aplicar",
+          "achieved_bloom_level": "compreender",
+          "adequacao": -1,
+          "status": "inadequado"
+        }
+      ],
+      "adequacao_habilidades": "colaboracao:-1, empatia:-1",
+      "adequacao_macro": "-1",
+      "classification": -1,
+      "avaliacao_valuator": "habilidade=colaboracao; esperado=aplicar; obtido=compreender; adequacao=-1; status=inadequado | habilidade=empatia; esperado=aplicar; obtido=compreender; adequacao=-1; status=inadequado",
+      "model_id": "ft:gpt-4.1-mini-2025-04-14:projeto-koru:bloom-evaluator:DK4dkBG2",
+      "temperature": 0.0,
+      "session_id": "7034caf6-3892-4f28-855a-9fe5b5dad05e"
+    },
+    {
+      "question": "A sua reflexão sobre a liderança automatizada é provocadora! Você menciona que a empatia é muitas vezes deixada de lado em favor de métricas rígidas. Como você antecipa possíveis rupturas no seu setor, considerando esse equilíbrio entre processamento e a necessidade humana?",
+      "response": "Antecipo rupturas monitorando o **desvio de fidelidade** do cliente: quando a eficiência operacional sacrifica tanto a conveniência humana que o público aceita pagar mais por um serviço \"menos otimizado\", mas mais empático. Estruturei um modelo de **análise de atrito residual**, que mapeia onde a padronização excessiva gera fadiga no consumidor. Ao identificar esse gap, ajusto a estratégia para devolver autonomia à ponta, garantindo que o valor percebido não seja apenas o preço, mas a segurança da relação. Assim, protejo a margem de lucro criando uma barreira de saída baseada em confiança, algo que a escala puramente processual não consegue replicar.",
+      "expected_bloom_level": "analisar",
+      "macrocompetencia": "Conhecimento de Negócio, Curiosidade, Fluência Digital, Visão de Longo Prazo",
+      "individual_skills": [
+        "conhecimento_de_negocio",
+        "curiosidade",
+        "fluencia_digital",
+        "visao_de_longo_prazo"
+      ],
+      "dados_classificacao": {
+        "habilidades_macro": [
+          "conhecimento_de_negocio",
+          "curiosidade",
+          "fluencia_digital",
+          "visao_de_longo_prazo"
+        ]
+      },
+      "system_prompt": "Você é um avaliador especializado em analisar respostas de usuários para determinar o nível de bloom demonstrado. Sua tarefa é classificar a resposta do usuário apenas nas habilidades informadas, retornando um nível de Bloom para cada habilidade.\nEsses são os dados para classificação: {\"habilidades_macro\": [\"conhecimento_de_negocio\", \"curiosidade\", \"fluencia_digital\", \"visao_de_longo_prazo\"]}",
+      "raw_response": "{\"habilidades\": \"conhecimento_de_negocio:criar, curiosidade:criar, fluencia_digital:criar, visao_de_longo_prazo:criar\"}",
+      "parsed_achieved_levels": {
+        "conhecimento_de_negocio": "criar",
+        "curiosidade": "criar",
+        "fluencia_digital": "criar",
+        "visao_de_longo_prazo": "criar"
+      },
+      "skill_analysis": [
+        {
+          "skill": "conhecimento_de_negocio",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        },
+        {
+          "skill": "curiosidade",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        },
+        {
+          "skill": "fluencia_digital",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        },
+        {
+          "skill": "visao_de_longo_prazo",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        }
+      ],
+      "adequacoes": {
+        "conhecimento_de_negocio": 1,
+        "curiosidade": 1,
+        "fluencia_digital": 1,
+        "visao_de_longo_prazo": 1
+      },
+      "inadequacoes": [
+        {
+          "skill": "conhecimento_de_negocio",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        },
+        {
+          "skill": "curiosidade",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        },
+        {
+          "skill": "fluencia_digital",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        },
+        {
+          "skill": "visao_de_longo_prazo",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        }
+      ],
+      "adequacao_habilidades": "conhecimento_de_negocio:1, curiosidade:1, fluencia_digital:1, visao_de_longo_prazo:1",
+      "adequacao_macro": "1",
+      "classification": 1,
+      "avaliacao_valuator": "habilidade=conhecimento_de_negocio; esperado=analisar; obtido=criar; adequacao=1; status=acima_do_esperado | habilidade=curiosidade; esperado=analisar; obtido=criar; adequacao=1; status=acima_do_esperado | habilidade=fluencia_digital; esperado=analisar; obtido=criar; adequacao=1; status=acima_do_esperado | habilidade=visao_de_longo_prazo; esperado=analisar; obtido=criar; adequacao=1; status=acima_do_esperado",
+      "model_id": "ft:gpt-4.1-mini-2025-04-14:projeto-koru:bloom-evaluator:DK4dkBG2",
+      "temperature": 0.0,
+      "session_id": "7034caf6-3892-4f28-855a-9fe5b5dad05e"
+    },
+    {
+      "question": "Entendo que sua perspectiva sobre a antecipação de rupturas é válida e interessante! No entanto, gostaria de incentivá-lo a reformular sua resposta, especialmente sobre como você imagina um equilíbrio entre a rigorosidade técnica e a empatia nas lideranças, e também como isso se conecta com a viabilidade de estratégias futuras. Considere falar sobre a importância de ouvir e integrar as experiências e feedbacks da equipe, além de analisar padrões observados nos anos anteriores. Isso poderia enriquecer sua resposta e oferecer uma visão mais completa sobre o tema!",
+      "response": "O equilíbrio ideal reside na **Liderança por Contexto**, onde a rigorosidade técnica define os limites da arena, mas a empatia dita como o jogo é jogado. Ao analisar padrões de turnover e produtividade de anos anteriores, percebo que a viabilidade de estratégias futuras depende menos de manuais e mais da integração de feedbacks reais da base. Escutar a equipe permite transformar o conhecimento tácito em vantagem competitiva, evitando que processos rígidos asfixiem a inovação. Estruturei um conselho de escuta ativa que traduz as dores operacionais em ajustes estratégicos antes que virem crises. Assim, a liderança não apenas impõe metas, mas garante que o caminho para alcançá-las seja humanamente sustentável. Isso cria uma cultura resiliente, onde o time se sente parte da construção, e não apenas uma peça da engrenagem. É essa conexão humana que blinda a empresa contra rupturas que a frieza técnica não consegue prever.",
+      "expected_bloom_level": "avaliar",
+      "macrocompetencia": "Conhecimento de Negócio, Curiosidade, Fluência Digital, Visão de Longo Prazo",
+      "individual_skills": [
+        "conhecimento_de_negocio",
+        "curiosidade",
+        "fluencia_digital",
+        "visao_de_longo_prazo"
+      ],
+      "dados_classificacao": {
+        "habilidades_macro": [
+          "conhecimento_de_negocio",
+          "curiosidade",
+          "fluencia_digital",
+          "visao_de_longo_prazo"
+        ]
+      },
+      "system_prompt": "Você é um avaliador especializado em analisar respostas de usuários para determinar o nível de bloom demonstrado. Sua tarefa é classificar a resposta do usuário apenas nas habilidades informadas, retornando um nível de Bloom para cada habilidade.\nEsses são os dados para classificação: {\"habilidades_macro\": [\"conhecimento_de_negocio\", \"curiosidade\", \"fluencia_digital\", \"visao_de_longo_prazo\"]}",
+      "raw_response": "{\"habilidades\": \"conhecimento_de_negocio:criar, curiosidade:criar, fluencia_digital:criar, visao_de_longo_prazo:criar\"}",
+      "parsed_achieved_levels": {
+        "conhecimento_de_negocio": "criar",
+        "curiosidade": "criar",
+        "fluencia_digital": "criar",
+        "visao_de_longo_prazo": "criar"
+      },
+      "skill_analysis": [
+        {
+          "skill": "conhecimento_de_negocio",
+          "expected_bloom_level": "avaliar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        },
+        {
+          "skill": "curiosidade",
+          "expected_bloom_level": "avaliar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        },
+        {
+          "skill": "fluencia_digital",
+          "expected_bloom_level": "avaliar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        },
+        {
+          "skill": "visao_de_longo_prazo",
+          "expected_bloom_level": "avaliar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        }
+      ],
+      "adequacoes": {
+        "conhecimento_de_negocio": 1,
+        "curiosidade": 1,
+        "fluencia_digital": 1,
+        "visao_de_longo_prazo": 1
+      },
+      "inadequacoes": [
+        {
+          "skill": "conhecimento_de_negocio",
+          "expected_bloom_level": "avaliar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        },
+        {
+          "skill": "curiosidade",
+          "expected_bloom_level": "avaliar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        },
+        {
+          "skill": "fluencia_digital",
+          "expected_bloom_level": "avaliar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        },
+        {
+          "skill": "visao_de_longo_prazo",
+          "expected_bloom_level": "avaliar",
+          "achieved_bloom_level": "criar",
+          "adequacao": 1,
+          "status": "acima_do_esperado"
+        }
+      ],
+      "adequacao_habilidades": "conhecimento_de_negocio:1, curiosidade:1, fluencia_digital:1, visao_de_longo_prazo:1",
+      "adequacao_macro": "1",
+      "classification": 1,
+      "avaliacao_valuator": "habilidade=conhecimento_de_negocio; esperado=avaliar; obtido=criar; adequacao=1; status=acima_do_esperado | habilidade=curiosidade; esperado=avaliar; obtido=criar; adequacao=1; status=acima_do_esperado | habilidade=fluencia_digital; esperado=avaliar; obtido=criar; adequacao=1; status=acima_do_esperado | habilidade=visao_de_longo_prazo; esperado=avaliar; obtido=criar; adequacao=1; status=acima_do_esperado",
+      "model_id": "ft:gpt-4.1-mini-2025-04-14:projeto-koru:bloom-evaluator:DK4dkBG2",
+      "temperature": 0.0,
+      "session_id": "7034caf6-3892-4f28-855a-9fe5b5dad05e"
+    }
+  ]
+}

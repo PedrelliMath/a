@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from pathlib import Path
 from typing import Any, Dict, Optional
 import unicodedata
 
@@ -16,12 +17,118 @@ from app.observability import track_helicone
 
 logger = get_log(__name__)
 
+OBSERVABILITY_DIR = os.getenv("SKILL_EVALUATOR_OBSERVABILITY_DIR", "artifacts/observability")
+
 
 class AgentSkillEvaluatorResponse(BaseModel):
     """Response model for skill evaluator"""
     classificacao: int = Field(description="intervalo", ge=-1, le=1)
     adequacao_habilidades: str = Field(description="avaliação detalhada por habilidade")
     adequacao_macro: str = Field(description="classificação macro")
+
+
+def _bloom_relation_label(value: int) -> str:
+    return {
+        -1: "inadequado",
+        0: "adequado",
+        1: "acima_do_esperado",
+    }.get(value, "desconhecido")
+
+
+def _safe_filename(value: str) -> str:
+    value = value.strip().lower()
+    value = re.sub(r"[^a-z0-9._-]+", "_", value)
+    value = re.sub(r"_+", "_", value)
+    return value.strip("._-") or "assessment"
+
+
+def _build_skill_valuator_summary(skill_analysis_item: dict[str, Any]) -> str:
+    return (
+        f"habilidade={skill_analysis_item.get('skill', '')}; "
+        f"esperado={skill_analysis_item.get('expected_bloom_level', '')}; "
+        f"obtido={skill_analysis_item.get('achieved_bloom_level', '')}; "
+        f"adequacao={skill_analysis_item.get('adequacao', '')}; "
+        f"status={skill_analysis_item.get('status', '')}"
+    )
+
+
+def _json_default(value: Any):
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def _persist_skill_evaluator_artifacts(audit_payload: dict[str, Any]) -> None:
+    session_id = audit_payload.get("session_id") or "assessment"
+    assessment_dir = Path(OBSERVABILITY_DIR) / "skill_evaluator" / _safe_filename(str(session_id))
+    assessment_dir.mkdir(parents=True, exist_ok=True)
+
+    json_path = assessment_dir / "skill_evaluator_detail.json"
+    csv_path = assessment_dir / "skill_evaluator.csv"
+
+    existing_payload = {
+        "session_id": str(session_id),
+        "iterations": [],
+    }
+    if json_path.exists():
+        try:
+            existing_payload = json.loads(json_path.read_text(encoding="utf-8"))
+        except Exception:
+            existing_payload = {"session_id": str(session_id), "iterations": []}
+
+    iterations = existing_payload.get("iterations") if isinstance(existing_payload, dict) else []
+    if not isinstance(iterations, list):
+        iterations = []
+
+    iterations.append(audit_payload)
+    payload = {
+        "session_id": str(session_id),
+        "assessment_dir": str(assessment_dir),
+        "total_iterations": len(iterations),
+        "iterations": iterations,
+    }
+
+    json_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, default=_json_default),
+        encoding="utf-8",
+    )
+
+    write_header = not csv_path.exists()
+    with csv_path.open("a", newline="", encoding="utf-8") as csv_file:
+        import csv
+
+        writer = csv.DictWriter(
+            csv_file,
+            fieldnames=["macro", "resposta", "avaliacao_valuator", "avaliacao_humana"],
+        )
+        if write_header:
+            writer.writeheader()
+
+        skill_analysis = audit_payload.get("skill_analysis") or []
+        if not skill_analysis:
+            skill_analysis = [{
+                "skill": audit_payload.get("macrocompetencia", ""),
+                "expected_bloom_level": audit_payload.get("expected_bloom_level", ""),
+                "achieved_bloom_level": audit_payload.get("parsed_achieved_levels", {}).get(
+                    audit_payload.get("macrocompetencia", ""),
+                    "",
+                ),
+                "adequacao": audit_payload.get("classification", ""),
+                "status": audit_payload.get("adequacao_macro", ""),
+            }]
+
+        for skill_item in skill_analysis:
+            writer.writerow(
+                {
+                    "macro": audit_payload.get("macrocompetencia", ""),
+                    "resposta": audit_payload.get("response", ""),
+                    "avaliacao_valuator": audit_payload.get(
+                        "avaliacao_valuator",
+                        _build_skill_valuator_summary(skill_item),
+                    ),
+                    "avaliacao_humana": audit_payload.get("avaliacao_humana", ""),
+                }
+            )
 
 
 def normalize_skill_name(skill_name: str) -> str:
@@ -177,6 +284,7 @@ class AgentSkillEvaluator:
         logger.info(f"Nível esperado: {nivel_esperado}")
         logger.info(f"Macrocompetência: {current_skill_group}")
         logger.info(f"Resposta do usuário (preview): {resposta_usuario[:100]}...")
+        question = evaluation_context.get("question", "")
         
         # Parse skill group into individual skills
         individual_skills = parse_skill_group(current_skill_group)
@@ -190,7 +298,7 @@ class AgentSkillEvaluator:
         logger.info(json.dumps(dados_classificacao, ensure_ascii=False, indent=2))
         
         # Execute inference
-        conteudo = await self._executar_inferencia(
+        conteudo, system_message = await self._executar_inferencia(
             resposta_usuario=resposta_usuario,
             dados_classificacao=dados_classificacao
         )
@@ -200,9 +308,22 @@ class AgentSkillEvaluator:
 
         # Compute adequacao per skill by comparing achieved vs expected
         adequacoes = {}
-        for skill, achieved in achieved_levels.items():
-            adequ = compare_bloom_levels(nivel_esperado, achieved)
+        skill_analysis = []
+        for skill in individual_skills:
+            achieved = achieved_levels.get(skill)
+            adequ = compare_bloom_levels(nivel_esperado, achieved or "") if achieved else 0
             adequacoes[skill] = adequ
+            skill_analysis.append(
+                {
+                    "skill": skill,
+                    "expected_bloom_level": nivel_esperado,
+                    "achieved_bloom_level": achieved,
+                    "adequacao": adequ,
+                    "status": _bloom_relation_label(adequ),
+                }
+            )
+
+        inadequacoes = [item for item in skill_analysis if item["adequacao"] != 0]
 
         # Build adequacao_habilidades string
         adequacao_habilidades = ", ".join([f"{k}:{v}" for k, v in adequacoes.items()])
@@ -234,8 +355,7 @@ class AgentSkillEvaluator:
         logger.info(f"Adequação Macro: {adequacao_macro}")
         logger.info(f"Adequação Habilidades: {adequacao_habilidades}")
         logger.info("=" * 80)
-        
-            # Log model id and session info for debugging finetune evaluation
+        # Log model id and session info for debugging finetune evaluation
         logger.info(f"Model usado para avaliação finetune: {self.model_id}")
         session_obj = evaluation_context.get("session") if isinstance(evaluation_context, dict) else None
         session_id = None
@@ -246,22 +366,55 @@ class AgentSkillEvaluator:
                 session_id = getattr(session_obj, "id", None) or getattr(session_obj, "session_id", None)
         if session_id:
             logger.info(f"Session ID: {session_id}")
+
+        avaliacao_valuator = " | ".join(
+            _build_skill_valuator_summary(item) for item in skill_analysis
+        )
+
+        audit_payload = {
+            "question": question,
+            "response": resposta_usuario,
+            "expected_bloom_level": nivel_esperado,
+            "macrocompetencia": current_skill_group,
+            "individual_skills": individual_skills,
+            "dados_classificacao": dados_classificacao,
+            "system_prompt": system_message,
+            "raw_response": conteudo,
+            "parsed_achieved_levels": achieved_levels,
+            "skill_analysis": skill_analysis,
+            "adequacoes": adequacoes,
+            "inadequacoes": inadequacoes,
+            "adequacao_habilidades": adequacao_habilidades,
+            "adequacao_macro": adequacao_macro,
+            "classification": classificacao,
+            "avaliacao_valuator": avaliacao_valuator,
+            "model_id": self.model_id,
+            "temperature": self.temperature,
+            "session_id": session_id,
+        }
+
+        try:
+            _persist_skill_evaluator_artifacts(audit_payload)
+        except Exception as export_error:
+            logger.warning(f"Falha ao persistir artefatos do skill evaluator: {export_error}")
+
         # Return structured response (mimicking pydantic_ai output structure)
         class Output:
-            def __init__(self, data: AgentSkillEvaluatorResponse):
+            def __init__(self, data: AgentSkillEvaluatorResponse, audit_payload: dict):
                 self.output = data
+                self.audit_payload = audit_payload
         
         return Output(AgentSkillEvaluatorResponse(
             classificacao=classificacao,
             adequacao_habilidades=adequacao_habilidades,
             adequacao_macro=adequacao_macro
-        ))
+        ), audit_payload)
 
     async def _executar_inferencia(
         self,
         resposta_usuario: str,
         dados_classificacao: Dict[str, Any],
-    ) -> str:
+    ) -> tuple[str, str]:
         """
         Execute inference using fine-tuned model.
         
@@ -304,7 +457,7 @@ class AgentSkillEvaluator:
         logger.info(raw_response)
         logger.info("=" * 80)
         
-        return raw_response
+        return raw_response, system_message
 
     def _parse_response(self, response: str) -> tuple[dict, str]:
         """
