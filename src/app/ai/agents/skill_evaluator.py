@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 import unicodedata
+import pandas as pd
 
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
@@ -56,6 +57,25 @@ def _json_default(value: Any):
     if hasattr(value, "isoformat"):
         return value.isoformat()
     return str(value)
+
+
+def parse_evaluations(row):
+        blocks = row['avaliacao_valuator'].split('|')
+        
+        results = []
+        for block in blocks:
+            block = block.strip()
+            if not block:
+                continue
+
+            parts = block.split(';')
+            d = {}
+            for p in parts:
+                if '=' in p:
+                    k, v = p.split('=', 1)
+                    d[k.strip()] = v.strip()
+            results.append(d)
+        return results
 
 
 def _persist_skill_evaluator_artifacts(audit_payload: dict[str, Any]) -> None:
@@ -129,6 +149,16 @@ def _persist_skill_evaluator_artifacts(audit_payload: dict[str, Any]) -> None:
                     "avaliacao_humana": audit_payload.get("avaliacao_humana", ""),
                 }
             )
+
+        csv = pd.read_csv(csv_path)
+        csv.drop_duplicates().to_csv(csv_path, index=False)
+
+        csv['eval_list'] = csv.apply(parse_evaluations, axis=1)
+        df_exploded = csv.explode('eval_list').reset_index(drop=True)
+
+        eval_df = pd.json_normalize(df_exploded['eval_list'])
+        df_final = pd.concat([df_exploded.drop(columns=['avaliacao_valuator', 'eval_list']), eval_df], axis=1)
+        df_final.to_csv(assessment_dir / "skill_evaluator_cleaned.csv", index=False)
 
 
 def normalize_skill_name(skill_name: str) -> str:
