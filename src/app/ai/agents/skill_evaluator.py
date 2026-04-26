@@ -26,6 +26,10 @@ class AgentSkillEvaluatorResponse(BaseModel):
     classificacao: int = Field(description="intervalo", ge=-1, le=1)
     adequacao_habilidades: str = Field(description="avaliação detalhada por habilidade")
     adequacao_macro: str = Field(description="classificação macro")
+    justificativas_habilidades: str = Field(
+        default="",
+        description="justificativas concatenadas por habilidade",
+    )
 
 
 def _bloom_relation_label(value: int) -> str:
@@ -85,6 +89,13 @@ def _persist_skill_evaluator_artifacts(audit_payload: dict[str, Any]) -> None:
 
     json_path = assessment_dir / "skill_evaluator_detail.json"
     csv_path = assessment_dir / "skill_evaluator.csv"
+    csv_fieldnames = [
+        "macro",
+        "resposta",
+        "avaliacao_valuator",
+        "justificativas_habilidades",
+        "avaliacao_humana",
+    ]
 
     existing_payload = {
         "session_id": str(session_id),
@@ -113,13 +124,28 @@ def _persist_skill_evaluator_artifacts(audit_payload: dict[str, Any]) -> None:
         encoding="utf-8",
     )
 
+    if csv_path.exists():
+        try:
+            existing_csv = pd.read_csv(csv_path)
+            needs_rewrite = any(col not in existing_csv.columns for col in csv_fieldnames)
+            if needs_rewrite:
+                for col in csv_fieldnames:
+                    if col not in existing_csv.columns:
+                        existing_csv[col] = ""
+                existing_csv = existing_csv[csv_fieldnames]
+                existing_csv.to_csv(csv_path, index=False)
+        except Exception as migration_error:
+            logger.warning(
+                f"Falha ao migrar schema do CSV de observabilidade: {migration_error}"
+            )
+
     write_header = not csv_path.exists()
     with csv_path.open("a", newline="", encoding="utf-8") as csv_file:
         import csv
 
         writer = csv.DictWriter(
             csv_file,
-            fieldnames=["macro", "resposta", "avaliacao_valuator", "avaliacao_humana"],
+            fieldnames=csv_fieldnames,
         )
         if write_header:
             writer.writeheader()
@@ -145,6 +171,10 @@ def _persist_skill_evaluator_artifacts(audit_payload: dict[str, Any]) -> None:
                     "avaliacao_valuator": audit_payload.get(
                         "avaliacao_valuator",
                         _build_skill_valuator_summary(skill_item),
+                    ),
+                    "justificativas_habilidades": audit_payload.get(
+                        "justificativas_habilidades",
+                        "",
                     ),
                     "avaliacao_humana": audit_payload.get("avaliacao_humana", ""),
                 }
@@ -247,9 +277,11 @@ class AgentSkillEvaluator:
         self,
         model_id: str,
         system_prompt_template: str,
+        justification_prompt_template: str,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         temperature: float = 0.0,
+        justification_model_id: str = "gpt-4o-mini",
     ):
         """
         Initialize skill evaluator.
@@ -263,7 +295,9 @@ class AgentSkillEvaluator:
         """
         self.model_id = model_id
         self.system_prompt_template = system_prompt_template
+        self.justification_prompt_template = justification_prompt_template
         self.temperature = temperature
+        self.justification_model_id = justification_model_id
         
         # Initialize OpenAI client
         api_key = api_key or os.getenv("OPENAI_API_KEY")
@@ -277,6 +311,36 @@ class AgentSkillEvaluator:
         self.client = AsyncOpenAI(**client_kwargs)
         
         logger.info(f"SkillEvaluator initialized with model: {model_id}")
+
+    def _normalize_two_line_justification(self, text: str) -> str:
+        cleaned = re.sub(r"\s+", " ", text or "").strip()
+        if not cleaned:
+            return "Sem justificativa disponível."
+
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", cleaned) if s.strip()]
+        if len(sentences) >= 2:
+            return f"{sentences[0]}\n{sentences[1]}"
+        return cleaned
+
+    def _build_justification_output(
+        self,
+        individual_skills: list[str],
+        achieved_levels: dict[str, str],
+        justifications: dict[str, str],
+    ) -> str:
+        parts = []
+        for skill in individual_skills:
+            bloom_level = achieved_levels.get(skill) or "na"
+            justification = self._normalize_two_line_justification(
+                justifications.get(skill) or "Sem justificativa disponível."
+            )
+            parts.append(
+                "{"
+                f"{skill}:{bloom_level}, "
+                f"justificativa:{justification}"
+                "}"
+            )
+        return "; ".join(parts)
 
     @track_helicone(agent_type="skill_evaluator")
     async def run_evaluation(self, evaluation_context: dict) -> AgentSkillEvaluatorResponse:
@@ -358,6 +422,16 @@ class AgentSkillEvaluator:
         # Build adequacao_habilidades string
         adequacao_habilidades = ", ".join([f"{k}:{v}" for k, v in adequacoes.items()])
 
+        justificativas = await self._generate_skill_justifications(
+            user_message=resposta_usuario,
+            skill_analysis=skill_analysis,
+        )
+        justificativas_habilidades = self._build_justification_output(
+            individual_skills=individual_skills,
+            achieved_levels=achieved_levels,
+            justifications=justificativas,
+        )
+
         # Determine adequacao_macro by majority vote over adequacoes values
         if adequacoes:
             counts = { -1: 0, 0: 0, 1: 0 }
@@ -384,6 +458,7 @@ class AgentSkillEvaluator:
         logger.info(f"Classificação: {classificacao} ({'-1=Abaixo, 0=Igual, 1=Acima'})")
         logger.info(f"Adequação Macro: {adequacao_macro}")
         logger.info(f"Adequação Habilidades: {adequacao_habilidades}")
+        logger.info(f"Justificativas Habilidades: {justificativas_habilidades}")
         logger.info("=" * 80)
         # Log model id and session info for debugging finetune evaluation
         logger.info(f"Model usado para avaliação finetune: {self.model_id}")
@@ -415,11 +490,14 @@ class AgentSkillEvaluator:
             "adequacoes": adequacoes,
             "inadequacoes": inadequacoes,
             "adequacao_habilidades": adequacao_habilidades,
+            "justificativas_habilidades": justificativas_habilidades,
+            "justificativas_map": justificativas,
             "adequacao_macro": adequacao_macro,
             "classification": classificacao,
             "avaliacao_valuator": avaliacao_valuator,
             "model_id": self.model_id,
             "temperature": self.temperature,
+            "justification_model_id": self.justification_model_id,
             "session_id": session_id,
         }
 
@@ -437,8 +515,59 @@ class AgentSkillEvaluator:
         return Output(AgentSkillEvaluatorResponse(
             classificacao=classificacao,
             adequacao_habilidades=adequacao_habilidades,
-            adequacao_macro=adequacao_macro
+            adequacao_macro=adequacao_macro,
+            justificativas_habilidades=justificativas_habilidades,
         ), audit_payload)
+
+    async def _generate_skill_justifications(
+        self,
+        user_message: str,
+        skill_analysis: list[dict[str, Any]],
+    ) -> dict[str, str]:
+        skills_with_bloom = [
+            {
+                "habilidade": item.get("skill", ""),
+                "avaliacao_bloom": item.get("achieved_bloom_level", ""),
+                "adequacao": item.get("adequacao", 0),
+            }
+            for item in skill_analysis
+        ]
+
+        payload = {
+            "user_message": user_message,
+            "skills": skills_with_bloom,
+        }
+
+        system_message = self.justification_prompt_template
+
+        try:
+            completion = await self.client.chat.completions.create(
+                model=self.justification_model_id,
+                temperature=0.2,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+                ],
+            )
+            raw_response = completion.choices[0].message.content or "{}"
+            parsed = json.loads(raw_response)
+            items = parsed.get("justificativas", []) if isinstance(parsed, dict) else []
+
+            mapping: dict[str, str] = {}
+            if isinstance(items, list):
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    skill = normalize_skill_name(str(item.get("habilidade", "")).strip())
+                    justification = str(item.get("justificativa", "")).strip()
+                    if skill and justification:
+                        mapping[skill] = justification
+
+            return mapping
+        except Exception as exc:
+            logger.warning(f"Falha ao gerar justificativas por habilidade: {exc}")
+            return {}
 
     async def _executar_inferencia(
         self,

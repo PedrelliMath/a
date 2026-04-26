@@ -160,6 +160,7 @@ class AgentOrquestrator:
         skill_eval_config = self.agents_config.get("skill_evaluator", {})
         model_id = skill_eval_config.get("model_name", "gpt-4o-mini")
         temperature = skill_eval_config.get("temperature", 0.0)
+        justification_model_id = skill_eval_config.get("justification_model_name", "gpt-4o-mini")
         
         # Get base_url for helicone if enabled
         base_url = None
@@ -170,9 +171,11 @@ class AgentOrquestrator:
         self.agent_skill_evaluator = AgentSkillEvaluator(
             model_id=model_id,
             system_prompt_template=skill_evaluator.system_prompt_template,
+            justification_prompt_template=skill_evaluator.justification_system_prompt_template,
             api_key=os.getenv("OPENAI_API_KEY"),
             base_url=base_url,
             temperature=temperature,
+            justification_model_id=justification_model_id,
         )
         
         logger.info(f"SkillEvaluator initialized with model: {model_id}")
@@ -571,6 +574,7 @@ class AgentOrquestrator:
         classificacao = result.output.classificacao
         adequacao_habilidades = result.output.adequacao_habilidades
         adequacao_macro = result.output.adequacao_macro
+        justificativas_habilidades = result.output.justificativas_habilidades
         current_level = self.context_running.new_proficiency_level
 
         # Calcular novo nível baseado na classificação
@@ -587,6 +591,7 @@ class AgentOrquestrator:
         self.agents_params["skill_evaluator"] = {
             "classification": classificacao,
             "adequacao_habilidades": adequacao_habilidades,
+            "justificativas_habilidades": justificativas_habilidades,
             "adequacao_macro": adequacao_macro,
             "expected_level": current_level,
             "achieved_level": new_level,
@@ -595,6 +600,7 @@ class AgentOrquestrator:
         logger.info(
             f"Avaliação: {classificacao} (macro: {adequacao_macro})\n"
             f"Habilidades: {adequacao_habilidades}\n"
+            f"Justificativas: {justificativas_habilidades}\n"
             f"Nível: {current_level} -> {new_level}"
         )
 
