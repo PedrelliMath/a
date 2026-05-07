@@ -8,3 +8,5 @@ mise*
 venv/
 .venv/
 .env
+.vscode/
+.DS_Store
