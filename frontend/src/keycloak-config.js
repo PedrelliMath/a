@@ -1,5 +1,5 @@
 export const keycloakConfig = {
-  url: 'http://200.137.197.134:18080',
+  url: `http://${process.env.APP_HOST}:${process.env.KEYCLOAK_PORT}`,
   realm: 'ceia',
   clientId: 'chatbot-frontend',
 };
