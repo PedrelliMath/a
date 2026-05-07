@@ -304,6 +304,7 @@ class AgentOrquestrator:
             f"  Skill: {skill.name}\n"
             f"  Proficiency Level: {current_proficiency_level}\n"
             f"  Specific Skill: {current_specific_skill}\n"
+            f"  Question: {current_question}\n"
             f"  Messages: {len(message_history)}\n"
             f"  Question Set: {len(current_question_set)} perguntas\n"
             f"  AI Message: {ai_message[:50]}...\n"
@@ -534,6 +535,7 @@ class AgentOrquestrator:
         logger.info("Validando mensagem do usuário")
         # Preparar contexto para validação
         validation_context = {
+            "message_history":self.context_in.get_message_history(),
             "user_message": user_message,
             "question": self.context_in.ai_message,
         }
