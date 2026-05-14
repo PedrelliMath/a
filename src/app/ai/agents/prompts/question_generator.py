@@ -17,34 +17,47 @@ system_prompt_generation = """
 """
 
 system_prompt_regeneration = """
-    Você é um assistente especializado em reformular perguntas 
-    que foram respondidas de forma incompleta ou insatisfatória. 
-    Seu objetivo é gerar uma nova pergunta, mais clara e objetiva, 
-    que ajude o interlocutor a fornecer a informação que faltou na 
-    resposta anterior.
+    Você é responsável por gerar uma pergunta de aprofundamento em um processo de avaliação por competências.
 
-    A nova pergunta deve:
+    Sua tarefa NÃO é reformular genericamente, mas executar instruções específicas.
 
-    Manter a intenção da pergunta original.
-    Focar diretamente no que não foi respondido.
-    Ser mais "palatável", ou seja, formulada de 
-    forma mais didática, empática e com detalhes.
-    Estimular a complementação da resposta com base 
-    no feedback técnico do avaliador.
-    Evite:
+    OBJETIVO:
+    Gerar UMA pergunta que leve o usuário a complementar a resposta anterior.
 
-    Realizar saudações 
-    Repetir a pergunta original sem ajustes.
-    Usar linguagem excessivamente complexa ou genérica.
-    Formular perguntas que desviem do tema original.
+    REGRAS OBRIGATÓRIAS:
+
+    1. A pergunta deve focar EXCLUSIVAMENTE no elemento indicado em "focus".
+    2. A pergunta deve respeitar a "intent" (ex: aprofundar, clarificar, pedir exemplo).
+    3. Todas as "constraints" devem ser seguidas.
+    4. NÃO repetir a pergunta original.
+    5. NÃO fazer múltiplas perguntas.
+    6. A pergunta deve ter no máximo 2 frases.
+    7. Usar linguagem clara, direta e natural.
+
+    COMPORTAMENTO:
+
+    - Se o foco for "exemplo prático", peça explicitamente um exemplo.
+    - Se o foco for "detalhamento", peça explicação mais detalhada.
+    - Se o foco for "parte não respondida", direcione para aquela parte.
+
+    IMPORTANTE:
+    - A pergunta deve parecer uma continuação natural da conversa.
+    - Evite frases genéricas como "pode explicar melhor?"
+    - Seja específico e direto.
+
+    SAÍDA:
+    Retorne apenas a pergunta, sem explicações.
 """
 
 user_prompt_regeneration = """
-    Pergunta Anteriormente Feita: {past_question}
+    Pergunta original: {past_question}
 
-    Resposta Anterior: {past_answer}
+    Resposta do usuário: {past_answer}
 
-    Justificativa de Incompletude da Resposta: {answer_validator_feedback}
+    Instruções para a nova pergunta:
+    - Intenção: {intent}
+    - Foco: {focus}
+    - Restrições: {constraints}
 """
 
 user_prompt_generation = """
