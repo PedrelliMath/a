@@ -2,7 +2,6 @@ from pydantic_ai import Agent
 from pydantic import BaseModel, Field
 from app.ai.agents.prompts.question_generator import system_prompt_generation
 from app.ai.agents.prompts.question_generator import system_prompt_regeneration
-
 from app.logger import get_log
 from app.observability import track_helicone
 
@@ -27,31 +26,30 @@ class AgentQuestionGenerator:
         self.system_prompt = system_prompt
         self.generation_prompt = generation_prompt
         self.regeneration_prompt = regeneration_prompt
-
         self.runner.system_prompt = system_prompt
 
     @track_helicone(agent_type="question_generator")
     async def run_generation(self, generation_context: dict):
-
         self.runner.system_prompt = system_prompt_generation
-
         final_prompt = self.generation_prompt.format(
             proficiency_level=generation_context["current_proficiency_level"],
             specific_skill=generation_context["current_specific_skill"],
-            joined_questions="\n".join(f"- {q}" for q in generation_context['current_question_set'])
+            joined_questions="\n".join(
+                f"- {q}" for q in generation_context["current_question_set"]
+            ),
         )
         logger.info(f"run_generation final_prompt:\n{final_prompt}")
         return await self.runner.run(user_prompt=final_prompt)
 
     @track_helicone(agent_type="question_generator")
     async def run_regeneration(self, context: dict):
-
         self.runner.system_prompt = system_prompt_regeneration
-
         final_prompt = self.regeneration_prompt.format(
-            past_question=context['bot_message'],
-            past_answer=context['user_response'],
-            answer_validator_feedback=context['validator_feedback']
+            past_question=context["past_question"],
+            past_answer=context["past_answer"],
+            intent=context["intent"],
+            focus=context["focus"],
+            constraints=context["constraints"],
         )
         logger.info(f"run_regeneration final_prompt:\n{final_prompt}")
         return await self.runner.run(user_prompt=final_prompt)

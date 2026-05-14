@@ -1,10 +1,10 @@
 from pydantic_ai import Agent
 from pydantic import BaseModel, Field
-
 from app.logger import get_log
 from app.observability import track_helicone
 
 logger = get_log(__name__)
+
 
 class AgentSupervisorResponse(BaseModel):
     message: str = Field(description="mensagem do agente supervisor")
@@ -26,7 +26,6 @@ class AgentSupervisor:
         self.close_prompt = close_prompt
         self.message_prompt = message_prompt
         self.greeting_prompt = greeting_prompt
-
         self.runner.system_prompt = system_prompt
 
     @track_helicone(agent_type="supervisor")
@@ -35,16 +34,15 @@ class AgentSupervisor:
             message_history=end_context["message_history"],
             current_subject=end_context["current_subject"],
             generated_question=end_context["generated_question"],
+            flow_context=end_context.get("flow_context", ""),
         )
-
-        logger.info(F"PROMPT SUPERVISOR: {final_prompt}")
-
+        logger.info(f"PROMPT SUPERVISOR: {final_prompt}")
         return await self.runner.run(user_prompt=final_prompt)
 
     @track_helicone(agent_type="supervisor")
     async def run_retype(self, retype_context: dict):
         final_prompt = self.retype_prompt.format(
-            message_history=retype_context['message_history'],
+            message_history=retype_context["message_history"],
         )
         return await self.runner.run(user_prompt=final_prompt)
 
@@ -58,9 +56,9 @@ class AgentSupervisor:
     @track_helicone(agent_type="supervisor")
     async def run_greeting(self, greeting_context: dict):
         final_prompt = self.greeting_prompt.format(
-            skill_name=greeting_context['skill_name'],
-            subjects=greeting_context['subjects'],
-            user_name=greeting_context['user_name'],
-            first_question=greeting_context['first_question']
+            skill_name=greeting_context["skill_name"],
+            subjects=greeting_context["subjects"],
+            user_name=greeting_context["user_name"],
+            first_question=greeting_context["first_question"],
         )
         return await self.runner.run(user_prompt=final_prompt)

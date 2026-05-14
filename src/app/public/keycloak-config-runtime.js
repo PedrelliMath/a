@@ -13,5 +13,5 @@ window.KEYCLOAK_INIT_OPTIONS = {
 
 // API Configuration
 window.API_CONFIG = {
-  baseURL: 'http://localhost:8000'
+  baseURL: 'http://localhost:18000'
 };
