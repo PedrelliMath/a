@@ -40,7 +40,7 @@ class SessionService:
 
             session_create = Session(user_id=current_user.id, skill_id=session_input.skill_id, messages=[])
             session = self.session_repository.create(session_create)
-            await self._start_session(session)
+            await self._start_session(session, current_user)
             return session.to_dict()
             
         except Exception as e:
@@ -193,7 +193,7 @@ class SessionService:
             
             # 3. Criar orquestrador e processar
             logger.info("Processando com AgentOrquestrator...")
-            orchestrator = create_agent_orquestrator(session)
+            orchestrator = create_agent_orquestrator(session, user_name=current_user.name)
             response = await orchestrator.get_response(message_input.text)
             
             # 4. Salvar mensagem do bot
@@ -222,7 +222,7 @@ class SessionService:
                 detail=f"Erro ao processar mensagem: {str(e)}"
             )
     
-    async def _start_session(self, session: Session):
+    async def _start_session(self, session: Session, current_user: CurrentUser = None):
         """
         Inicia uma sessão com saudação do bot
         
@@ -243,7 +243,8 @@ class SessionService:
             
             # Criar orquestrador e processar sem mensagem = saudação
             logger.info("Iniciando sessão com saudação...")
-            orchestrator = create_agent_orquestrator(session)
+            user_name = current_user.name if current_user else None
+            orchestrator = create_agent_orquestrator(session, user_name=user_name)
             response = await orchestrator.get_response(user_message=None)
             
             # Salvar saudação do bot

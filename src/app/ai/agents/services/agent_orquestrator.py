@@ -75,12 +75,13 @@ class AgentOrquestrator:
     O salvamento das mensagens deve ser feito externamente após receber a resposta.
     """
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, user_name: str | None = None):
         self.session = session
         self.context_in = None
         self.context_running = None
         # FIX #9: agents_params resetado por chamada em get_response, não só no __init__
-        self.agents_params = {}
+        self.agents_params = {"prompt_version": "v2-neutral"}
+        self.user_name = user_name or session.user_id
 
         self.agent_supervisor = None
         self.agent_message_validator = None
@@ -254,7 +255,6 @@ class AgentOrquestrator:
             f"  Skill: {skill.name}\n"
             f"  Proficiency Level: {current_proficiency_level}\n"
             f"  Specific Skill: {current_specific_skill}\n"
-            f"  Question: {current_question}\n"
             f"  Messages: {len(message_history)}\n"
             f"  Question Set: {len(current_question_set)} perguntas\n"
             f"  AI Message: {ai_message[:50]}...\n"
@@ -365,7 +365,7 @@ class AgentOrquestrator:
         greeting_context = {
             "skill_name": self.context_in.session.skill.name,
             "subjects": list(self.context_in.rubrics.keys()),
-            "user_name": self.context_in.session.user_id,
+            "user_name": self.user_name,
             "first_question": new_question,
         }
 
@@ -451,15 +451,6 @@ class AgentOrquestrator:
 
         return result.output.message
 
-    async def _validate_message(self, user_message: str) -> tuple[bool, str]:
-        """Valida se a mensagem do usuário está adequada"""
-        logger.info("Validando mensagem do usuário")
-        # Preparar contexto para validação
-        validation_context = {
-            "message_history":self.context_in.get_message_history(),
-            "user_message": user_message,
-            "question": self.context_in.ai_message,
-        }
     def _get_invalid_history(self) -> str:
         """
         Retorna histórico formatado das respostas inválidas do usuário
@@ -512,8 +503,11 @@ class AgentOrquestrator:
         return "\n".join(invalid_entries)
 
     async def _validate_message(self, user_message: str):
+        """Valida se a mensagem do usuário está adequada"""
+        logger.info("Validando mensagem do usuário")
         result = await self.agent_message_validator.run_validation(
             {
+                "message_history":self.context_in.get_message_history(),
                 "user_message": user_message,
                 "question": self.context_in.ai_message,
                 "invalid_history": self._get_invalid_history(),
@@ -821,5 +815,20 @@ class AgentOrquestrator:
         )
 
 
-def create_agent_orquestrator(session: Session) -> AgentOrquestrator:
-    return AgentOrquestrator(session)
+def create_agent_orquestrator(session: Session, user_name: str | None = None) -> AgentOrquestrator:
+    """
+    Factory function para criar AgentOrquestrator
+    Args:
+        session: Objeto Session do banco (já carregado com skill)
+        user_name: Nome do usuário (do JWT). Se None, usa user_id.
+    Returns:
+        AgentOrquestrator configurado
+    Exemplo:
+        # Buscar session do banco
+        session = await session_repo.get_by_id(session_id)
+        # Criar orquestrador
+        orchestrator = create_agent_orquestrator(session, user_name="João")
+        # Usar
+        response = await orchestrator.get_response(user_message)
+    """
+    return AgentOrquestrator(session, user_name=user_name)

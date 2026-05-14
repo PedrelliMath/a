@@ -1,0 +1,59 @@
+{
+  "session_id": "f37557dd-25ed-4439-9b40-82d65bf96786",
+  "assessment_dir": "/project/app/artifacts/observability/skill_evaluator/f37557dd-25ed-4439-9b40-82d65bf96786",
+  "total_iterations": 1,
+  "iterations": [
+    {
+      "question": "A resposta apresentada necessita de mais profundidade. Como o desalinhamento entre o que você acredita e como age impacta suas atividades e quais reflexões pessoais você faz sobre essa situação?",
+      "response": "Percebo pelos momentos em que minhas ações me deixam desconfortável, mesmo quando parecem corretas por fora. Também noto quando começo a criar justificativas demais para atitudes que contradizem meus valores. Outro sinal é sentir culpa, frustração ou vazio após certas decisões. Com o tempo, refletir sobre hábitos e padrões ajuda a identificar essas incoerências.",
+      "expected_bloom_level": "analisar",
+      "macrocompetencia": "Autoconhecimento",
+      "individual_skills": [
+        "autoconhecimento"
+      ],
+      "dados_classificacao": {
+        "habilidades_macro": [
+          "autoconhecimento"
+        ]
+      },
+      "system_prompt": "Você é um avaliador especializado em analisar respostas de usuários para determinar o nível de bloom demonstrado. Sua tarefa é classificar a resposta do usuário apenas nas habilidades informadas, retornando um nível de Bloom para cada habilidade.\nEsses são os dados para classificação: {\"habilidades_macro\": [\"autoconhecimento\"]}",
+      "raw_response": "{\"habilidades\": \"autoconhecimento:compreender\"}",
+      "parsed_achieved_levels": {
+        "autoconhecimento": "compreender"
+      },
+      "skill_analysis": [
+        {
+          "skill": "autoconhecimento",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "compreender",
+          "adequacao": -1,
+          "status": "inadequado"
+        }
+      ],
+      "adequacoes": {
+        "autoconhecimento": -1
+      },
+      "inadequacoes": [
+        {
+          "skill": "autoconhecimento",
+          "expected_bloom_level": "analisar",
+          "achieved_bloom_level": "compreender",
+          "adequacao": -1,
+          "status": "inadequado"
+        }
+      ],
+      "adequacao_habilidades": "autoconhecimento:-1",
+      "justificativas_habilidades": "{autoconhecimento:compreender, justificativa:Você atingiu o nível de bloom Compreender por conta da interpretação de significado das suas emoções e ações, evidenciando a operação de reflexão crítica.\nPara transitar ao nível superior, seria necessário demonstrar a capacidade de decompor esses sentimentos em causas subjacentes e elaborar estratégias de mudança.}",
+      "justificativas_map": {
+        "autoconhecimento": "Você atingiu o nível de bloom Compreender por conta da interpretação de significado das suas emoções e ações, evidenciando a operação de reflexão crítica. Para transitar ao nível superior, seria necessário demonstrar a capacidade de decompor esses sentimentos em causas subjacentes e elaborar estratégias de mudança."
+      },
+      "adequacao_macro": "-1",
+      "classification": -1,
+      "avaliacao_valuator": "habilidade=autoconhecimento; esperado=analisar; obtido=compreender; adequacao=-1; status=inadequado",
+      "model_id": "ft:gpt-4.1-mini-2025-04-14:projeto-koru:bloom-evaluator:DK4dkBG2",
+      "temperature": 0,
+      "justification_model_id": "gpt-4o-mini",
+      "session_id": "f37557dd-25ed-4439-9b40-82d65bf96786"
+    }
+  ]
+}
