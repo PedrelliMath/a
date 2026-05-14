@@ -34,7 +34,7 @@ class SessionOutput(BaseModel):
     """Schema de saída para sessão"""
     id: UUID
     skill_id: UUID
-    user_id: UUID
+    user_id: str
     created_at: datetime
     updated_at: datetime
 

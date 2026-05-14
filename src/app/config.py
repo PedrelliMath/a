@@ -80,6 +80,17 @@ class Settings(BaseSettings):
     helicone_enabled: bool = Field(default=True)
     helicone_base_url: str = Field(default="https://oai.helicone.ai/v1")
     
+    # OpenAI
+    openai_api_key: SecretStr = Field(default=None)
+    openai_base_url: str = Field(default="https://api.openai.com/v1")
+    
+    @property
+    def OPENAI_BASE_URL(self) -> str:
+        """Get OpenAI base URL - uses Helicone if configured, otherwise direct OpenAI"""
+        if self.helicone.is_configured:
+            return self.helicone_base_url
+        return self.openai_base_url
+    
     @property
     def database(self) -> PostgresSettings:
         return PostgresSettings(
@@ -102,7 +113,7 @@ class Settings(BaseSettings):
     def auth(self) -> AuthenticationSettings:
         return AuthenticationSettings(
             jwks_uri=f"{self.protocol}://{self.keycloak_server_url}/{self.jwks_uri}",
-            issuer=f"{self.protocol}://{public_url}/{self.issuer}",
+            issuer=f"{self.protocol}://{self.keycloak_server_url}/{self.issuer}",
             jwt_algorithm=self.jwt_algorithm,
             jwt_audience=self.jwt_audience,
             jwt_scopes=self.jwt_scopes.split()

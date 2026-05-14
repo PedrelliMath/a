@@ -1,0 +1,163 @@
+{
+  "name": "Liderença",
+  "description": "Avaliar liderança",
+  "questions": {
+    "bloom_levels": {
+      "analisar": {
+        "abaixo": "aplicar",
+        "acima": "avaliar",
+        "descricao": "Capacidade de dividir informações em partes e entender suas inter-relações. Envolve examinar, categorizar, detectar padrões e identificar causas ou consequências."
+      },
+      "aplicar": {
+        "abaixo": "compreender",
+        "acima": "analisar",
+        "descricao": "Capacidade de usar o conhecimento adquirido em situações reais. Envolve implementar conceitos, técnicas ou habilidades em contextos práticos de trabalho."
+      },
+      "avaliar": {
+        "abaixo": "analisar",
+        "acima": "criar",
+        "descricao": "Capacidade de fazer julgamentos fundamentados com base em critérios definidos. Inclui analisar alternativas, justificar escolhas e medir resultados."
+      },
+      "compreender": {
+        "abaixo": "lembrar",
+        "acima": "aplicar",
+        "descricao": "Capacidade de explicar ideias ou conceitos com base na compreensão de seu significado. Inclui resumir, interpretar, comparar e exemplificar informações adquiridas."
+      },
+      "criar": {
+        "abaixo": "avaliar",
+        "acima": "criar",
+        "descricao": "Capacidade de gerar novas ideias, produtos ou processos. Envolve planejar, produzir e desenvolver soluções originais a partir de conhecimentos diversos."
+      },
+      "lembrar": {
+        "abaixo": "lembrar",
+        "acima": "compreender",
+        "descricao": "Capacidade de recordar fatos, conceitos e informações básicas aprendidas anteriormente. Envolve identificar, listar, nomear ou reconhecer informações sem a necessidade de interpretação ou aplicação."
+      }
+    },
+    "rubrics": {
+      "Autoconhecimento": {
+        "analisar": [
+          "Como você percebe desalinhamentos entre o que acredita e como age?"
+        ],
+        "aplicar": [
+          "Quais hábitos você cultiva para manter foco e organização?"
+        ],
+        "avaliar": [
+          "Como você revisa e adapta seus objetivos pessoais e profissionais?"
+        ],
+        "compreender": [
+          "Como você descreveria seu estilo de trabalho e seu impacto no time?"
+        ],
+        "criar": [
+          "Que estratégias você usa para construir sua identidade profissional?"
+        ],
+        "lembrar": [
+          "Quais comportamentos você percebe que se repetem em situações de pressão?"
+        ]
+      },
+      "Colaboração, Empatia": {
+        "analisar": [
+          "Quais padrões você já identificou que dificultavam a colaboração?",
+          "Você já mapeou comportamentos prejudiciais dentro de um time? Como?"
+        ],
+        "aplicar": [
+          "Como você contribuiu para melhorar a colaboração no seu time?",
+          "Como você usa a empatia para dar feedback ou resolver conflitos?"
+        ],
+        "avaliar": [
+          "Como você mede se a colaboração está dando certo?",
+          "Como você percebe se a empatia está contribuindo para o clima organizacional?"
+        ],
+        "compreender": [
+          "Como estilos diferentes de liderança influenciam a colaboração em equipe?",
+          "Como você explica o papel da empatia no trabalho em equipe?"
+        ],
+        "criar": [
+          "Você já criou alguma estrutura para fortalecer colaboração entre áreas?",
+          "Que iniciativas você já criou para promover inclusão e escuta ativa?"
+        ],
+        "lembrar": [
+          "Quais práticas você considera essenciais para uma comunicação eficaz?",
+          "Como você percebe que alguém está desconfortável numa conversa?"
+        ]
+      },
+      "Conhecimento de Negócio, Curiosidade, Fluência Digital, Visão de Longo Prazo": {
+        "analisar": [
+          "Como você antecipa possíveis rupturas no seu setor?",
+          "Como você avalia se a operação está alinhada com a estratégia de negócio?"
+        ],
+        "aplicar": [
+          "Você já tomou uma decisão baseada em uma visão de longo prazo? Como?",
+          "Que decisão recente você tomou com base em análise de negócio?"
+        ],
+        "avaliar": [
+          "Como você avalia se uma estratégia futura é viável?",
+          "Como você avalia se uma oportunidade de negócio vale o investimento?"
+        ],
+        "compreender": [
+          "Como você conecta uma tendência de mercado à estratégia da empresa?",
+          "Como suas decisões influenciam receita, custo ou margem?"
+        ],
+        "criar": [
+          "Que modelo você já ajudou a criar pensando em sustentabilidade futura?",
+          "Que tipo de plano ou modelo de negócio você já ajudou a criar?"
+        ],
+        "lembrar": [
+          "Quais tendências você acompanha e por quê?",
+          "Quais ferramentas digitais você usa para facilitar seu trabalho?",
+          "Quais são os blocos essenciais de um modelo de negócio que você conhece?"
+        ]
+      },
+      "Dados e Inteligência Artificial, Orientação a Serviços e ao Cliente, Solução de Problemas": {
+        "analisar": [
+          "Como você dividiu um problema complexo para entender melhor suas partes?",
+          "Como você transforma dados em insights práticos?"
+        ],
+        "aplicar": [
+          "Que metodologia você usou para resolver um problema real com o time?",
+          "Como você já usou dados para tomar uma decisão importante?"
+        ],
+        "avaliar": [
+          "Como você avaliou diferentes soluções para um problema estratégico?",
+          "Como você valida se uma decisão baseada em dados deu resultado?"
+        ],
+        "compreender": [
+          "Como você explicaria a causa de um problema recorrente no seu time?",
+          "Por que a estruturação de dados é importante para tomar boas decisões?"
+        ],
+        "criar": [
+          "Qual foi a solução mais inovadora que você já criou para um desafio relevante?",
+          "Você já criou alguma solução baseada em dados ou IA? Como foi?"
+        ],
+        "lembrar": [
+          "Qual foi a última vez que você identificou um problema recorrente e como reconheceu o padrão?",
+          "Como seu trabalho influencia a experiência do cliente, interna ou externa?",
+          "Quais dados você costuma acompanhar e o que eles indicam?"
+        ]
+      }
+    }
+  },
+  "agents_config": {
+    "question_generator": {
+      "max_tokens": 1000,
+      "model_name": "gpt-4o-mini",
+      "temperature": 0.3
+    },
+    "question_regenerator": {
+      "max_tokens": 1000,
+      "model_name": "gpt-4o-mini",
+      "temperature": 0.3
+    },
+    "skill_evaluator":{
+        "model_name":"ft:gpt-4.1-mini-2025-04-14:projeto-koru:bloom-evaluator:DK4dkBG2",
+        "justification_model_name":"gpt-4o-mini",
+        "temperature":0.0,
+        "max_tokens":1000
+    },
+    "supervisor": {
+      "max_tokens": 1000,
+      "model_name": "gpt-4o-mini",
+      "temperature": 0.3
+    }
+  }
+}

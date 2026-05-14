@@ -1,6 +1,7 @@
 from typing import Optional
 from uuid import UUID
 from pydantic_ai import Agent
+import os
 
 from app.ai.agents.message_validator import (
     AgentMessageValidator,
@@ -27,6 +28,7 @@ from app.ai.agents.schemas.chat import ChatContextIn, ChatContextOut, ChatContex
 from app.models.session import Session
 from app.logger import get_log
 from app.observability import HeliconeContext
+from app.config import settings
 
 logger = get_log(__name__)
 
@@ -154,14 +156,29 @@ class AgentOrquestrator:
             validation_prompt=message_validator.validation_prompt,
         )
 
+        # Skill Evaluator with fine-tuned model
+        skill_eval_config = self.agents_config.get("skill_evaluator", {})
+        model_id = skill_eval_config.get("model_name", "gpt-4o-mini")
+        temperature = skill_eval_config.get("temperature", 0.0)
+        justification_model_id = skill_eval_config.get("justification_model_name", "gpt-4o-mini")
+        
+        # Get base_url for helicone if enabled
+        base_url = None
+        if settings.helicone.is_configured:
+            base_url = settings.helicone.helicone_base_url
+            logger.info(f"Using Helicone base URL: {base_url}")
+        
         self.agent_skill_evaluator = AgentSkillEvaluator(
-            runner=Agent(
-                model=create_model("skill_evaluator"),
-                output_type=AgentSkillEvaluatorResponse
-            ),
-            system_prompt=skill_evaluator.system_prompt,
-            evaluation_prompt=skill_evaluator.evaluation_prompt,
+            model_id=model_id,
+            system_prompt_template=skill_evaluator.system_prompt_template,
+            justification_prompt_template=skill_evaluator.justification_system_prompt_template,
+            api_key=os.getenv("OPENAI_API_KEY"),
+            base_url=base_url,
+            temperature=temperature,
+            justification_model_id=justification_model_id,
         )
+        
+        logger.info(f"SkillEvaluator initialized with model: {model_id}")
 
         self.agent_question_generator = AgentQuestionGenerator(
             runner=Agent(
@@ -551,12 +568,15 @@ class AgentOrquestrator:
             "current_question_set": self.current_question_set,
             "rubrics": self.context_in.rubrics,
             "bloom_levels": self.context_in.bloom_levels,
+            "session": self.session,  # Pass session for ID
         }
         
         result = await self.agent_skill_evaluator.run_evaluation(evaluation_context)
 
         classificacao = result.output.classificacao
-        justificativa = result.output.justificativa
+        adequacao_habilidades = result.output.adequacao_habilidades
+        adequacao_macro = result.output.adequacao_macro
+        justificativas_habilidades = result.output.justificativas_habilidades
         current_level = self.context_running.new_proficiency_level
 
         # Calcular novo nível baseado na classificação
@@ -572,13 +592,17 @@ class AgentOrquestrator:
         # Capturar output do evaluator
         self.agents_params["skill_evaluator"] = {
             "classification": classificacao,
-            "justification": justificativa,
+            "adequacao_habilidades": adequacao_habilidades,
+            "justificativas_habilidades": justificativas_habilidades,
+            "adequacao_macro": adequacao_macro,
             "expected_level": current_level,
             "achieved_level": new_level,
         }
 
         logger.info(
-            f"Avaliação: {classificacao} ({justificativa})\n"
+            f"Avaliação: {classificacao} (macro: {adequacao_macro})\n"
+            f"Habilidades: {adequacao_habilidades}\n"
+            f"Justificativas: {justificativas_habilidades}\n"
             f"Nível: {current_level} -> {new_level}"
         )
 

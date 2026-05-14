@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 import os
 import requests
 from dotenv import load_dotenv
@@ -11,7 +11,17 @@ from app.logger import get_log
 from app.models.current_user import CurrentUser
 
 logger = get_log(__name__)
-jwks = requests.get(settings.auth.jwks_uri).json()
+
+# Verifica se auth está desabilitada para desenvolvimento local
+DISABLE_AUTH = os.getenv("DISABLE_AUTH", "false").lower() == "true"
+
+# Só carrega jwks se auth estiver habilitada
+jwks = None
+if not DISABLE_AUTH:
+    try:
+        jwks = requests.get(settings.auth.jwks_uri).json()
+    except Exception as e:
+        logger.warning(f"Não foi possível carregar JWKS: {e}. Autenticação pode não funcionar.")
 
 oauth2_scheme = OAuth2AuthorizationCodeBearer(
     authorizationUrl=f"{settings.auth.issuer}/protocol/openid-connect/auth",
@@ -21,7 +31,8 @@ oauth2_scheme = OAuth2AuthorizationCodeBearer(
         "profile": "Profile information",
         "email": "Email address"
     },
-    scheme_name="OAuth2"
+    scheme_name="OAuth2",
+    auto_error=not DISABLE_AUTH  # Não retorna erro 401 automaticamente se auth desabilitada
 )
 
 def get_public_key(token: str) -> Dict:
@@ -38,8 +49,20 @@ def get_public_key(token: str) -> Dict:
 
 def get_current_user(
     request: Request,
-    token: str = Security(oauth2_scheme)
+    token: Optional[str] = Security(oauth2_scheme)
 ) -> CurrentUser:
+    # Modo desenvolvimento sem autenticação
+    if DISABLE_AUTH:
+        logger.info("Autenticação desabilitada - usando usuário de desenvolvimento")
+        fake_user = CurrentUser(
+            id="dev-user-123",
+            name="dev_user",
+            scopes=["openid", "profile", "email"]
+        )
+        request.state.current_user = fake_user.model_dump()
+        return fake_user
+    
+    # Modo produção com autenticação
     try:
         key = get_public_key(token)
 

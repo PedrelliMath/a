@@ -12,7 +12,7 @@ COPY src/app /project/app
 
 # install dependencies and project into the local packages directory
 WORKDIR /project
-RUN pdm install --check --prod --no-editable
+RUN pdm install --prod --no-editable
 
 # run stage
 FROM python:$PYTHON_BASE

@@ -718,11 +718,15 @@
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
         "http://localhost:3000/*",
-        "http://localhost:18000/*"
+        "http://localhost:18000/*",
+        "http://localhost:8000/*",
+        "http://200.137.197.134:18080/*"
       ],
       "webOrigins": [
         "http://localhost:18000",
-        "http://localhost:3000"
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://200.137.197.134:18080"
       ],
       "notBefore": 0,
       "bearerOnly": false,
@@ -737,7 +741,7 @@
       "attributes": {
         "oidc.ciba.grant.enabled": "false",
         "backchannel.logout.session.required": "true",
-        "post.logout.redirect.uris": "http://localhost:18000/*##http://localhost:3000/*",
+        "post.logout.redirect.uris": "http://localhost:18000/*##http://localhost:3000/*##http://localhost:8000/*##http://200.137.197.134:18080/*",
         "display.on.consent.screen": "false",
         "oauth2.device.authorization.grant.enabled": "false",
         "backchannel.logout.revoke.offline.tokens": "false"

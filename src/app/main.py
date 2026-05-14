@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from app.routers import skill, session, evaluation
 
@@ -18,6 +19,9 @@ from app.logger import get_log
 
 
 logger = get_log(__name__)
+
+# Diretório public relativo ao arquivo main.py
+PUBLIC_DIR = Path(__file__).parent / "public"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

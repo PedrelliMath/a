@@ -18,9 +18,15 @@ export const KeycloakProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const kc = new Keycloak(keycloakConfig);
+    // Use runtime config if available, otherwise fall back to build-time config
+    const runtimeConfig = (window as any).KEYCLOAK_CONFIG || keycloakConfig;
+    const runtimeInitOptions = (window as any).KEYCLOAK_INIT_OPTIONS || keycloakInitOptions;
+    
+    console.log('🔧 Keycloak Config:', runtimeConfig);
+    
+    const kc = new Keycloak(runtimeConfig);
 
-    kc.init(keycloakInitOptions)
+    kc.init(runtimeInitOptions)
       .then((authenticated) => {
         console.log('🔐 Keycloak inicializado. Authenticated:', authenticated);
         
