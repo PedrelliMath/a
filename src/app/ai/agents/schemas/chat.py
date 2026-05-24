@@ -30,6 +30,7 @@ class ChatContextOut():
     """Dados de saída após a execução do orquestrador"""
     supervisor_message: str | None = None
     params: dict | None = None
+    pre_messages: list[dict] | None = None
 
 
 @dataclass

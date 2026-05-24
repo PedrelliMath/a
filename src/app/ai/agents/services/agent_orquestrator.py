@@ -23,6 +23,7 @@ from app.ai.agents.skill_evaluator import (
 )
 from app.ai.agents.supervisor import AgentSupervisor, AgentSupervisorResponse
 from app.ai.agents.schemas.chat import ChatContextIn, ChatContextOut, ChatContextRunning
+from app.ai.agents.helpers.transition_phrases import pick_transition_phrase
 from app.models.session import Session
 from app.logger import get_log
 from app.observability import HeliconeContext
@@ -417,10 +418,42 @@ class AgentOrquestrator:
         self.agents_params["new_proficiency_level"] = self.context_running.new_proficiency_level
         self.agents_params["new_specific_skill"] = self.context_running.new_specific_skill
 
+        pre_messages = self._build_transition_pre_messages()
+
         return ChatContextOut(
             supervisor_message=supervisor_message,
             params=self.agents_params,
+            pre_messages=pre_messages,
         )
+
+    def _build_transition_pre_messages(self) -> list[dict] | None:
+        tracker = self.agents_params.get("progress_tracker") or {}
+        if not tracker.get("changed_skill"):
+            return None
+
+        used = [
+            (msg.get("params") or {}).get("transition_phrase")
+            for msg in self.context_in.message_history
+            if msg.get("user_type") == "bot"
+            and (msg.get("params") or {}).get("transition_phrase")
+        ]
+        phrase = pick_transition_phrase(used)
+
+        logger.info(
+            f"Transicao de topico: {tracker.get('previous_skill')} -> "
+            f"{tracker.get('new_skill')} | frase sorteada: {phrase}"
+        )
+
+        return [
+            {
+                "text": phrase,
+                "params": {
+                    "transition_phrase": phrase,
+                    "previous_skill": tracker.get("previous_skill"),
+                    "new_skill": tracker.get("new_skill"),
+                },
+            }
+        ]
 
     async def _generate_supervisor_response(
         self, new_question: str, flow_type: str = "normal"

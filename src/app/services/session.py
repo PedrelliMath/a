@@ -138,11 +138,11 @@ class SessionService:
         return [session.to_dict() for session in sessions]
 
     async def add_message(
-        self, 
+        self,
         current_user: CurrentUser,
-        session_id: UUID, 
+        session_id: UUID,
         message_input: SessionMessageInput
-    ):
+    ) -> List[SessionMessageOutput]:
         """
         Adiciona mensagem do usuário e obtém resposta do bot
         
@@ -196,22 +196,31 @@ class SessionService:
             orchestrator = create_agent_orquestrator(session)
             response = await orchestrator.get_response(message_input.text)
             
-            # 4. Salvar mensagem do bot
+            # 4. Salvar pre-mensagens do bot (ex: frase de transicao entre topicos)
+            saved_messages: list[dict] = []
+            for pre in (response.pre_messages or []):
+                logger.info(f"Salvando pre-mensagem do bot: {pre['text'][:50]}...")
+                saved_messages.append(
+                    self.session_repository.add_message(
+                        session=session,
+                        message_input=SessionMessageInput(text=pre["text"]),
+                        user_type="bot",
+                        params=pre.get("params") or {},
+                    )
+                )
+
+            # 5. Salvar mensagem principal do bot
             logger.info(f"Salvando mensagem do bot: {response.supervisor_message[:50]}...")
-            bot_message_input = SessionMessageInput(
-                text=response.supervisor_message
+            saved_messages.append(
+                self.session_repository.add_message(
+                    session=session,
+                    message_input=SessionMessageInput(text=response.supervisor_message),
+                    user_type="bot",
+                    params=response.params
+                )
             )
-            
-            message = self.session_repository.add_message(
-                session=session,
-                message_input=bot_message_input,
-                user_type="bot",
-                params=response.params
-            )
-            
-            return SessionMessageOutput(
-               **message
-            )
+
+            return [SessionMessageOutput(**m) for m in saved_messages]
             
         except HTTPException:
             raise

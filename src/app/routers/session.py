@@ -98,9 +98,9 @@ def list_sessions_by_skill(
 @router.post(
     "/{session_id}/messages",
     status_code=status.HTTP_201_CREATED,
-    response_model=SessionMessageOutput,
+    response_model=list[SessionMessageOutput],
     summary="Adicionar mensagem à sessão",
-    description="Adiciona uma nova mensagem a uma sessão existente."
+    description="Adiciona uma nova mensagem a uma sessão existente. Retorna a lista de mensagens do bot geradas neste turno (normalmente 1, mas 2 em transições entre tópicos: frase de transição + pergunta)."
 )
 async def add_message(
     session_id: UUID,
