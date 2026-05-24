@@ -1215,7 +1215,7 @@ function App() {
                     ? 'bg-blue-100 text-blue-800' 
                     : 'bg-green-100 text-green-800'
                 }`}>
-                  {message.user_type === 'user' ? 'Usuário' : 'Assistente'}
+                  {message.user_type === 'user' ? 'Usuário' : 'Koruja'}
                 </span>
                 <span className="text-xs text-gray-500">#{index + 1}</span>
               </div>
