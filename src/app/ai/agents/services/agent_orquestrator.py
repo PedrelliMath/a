@@ -480,6 +480,47 @@ class AgentOrquestrator:
             except ValueError:
                 logger.error(f"Skill não encontrada: {current_skill}")
                 return self._error_response()
+        else:
+            levels = ["lembrar", "compreender", "aplicar", "analisar", "avaliar", "criar"]
+            current_idx = levels.index(current_level.lower()) if current_level.lower() in levels else -1
+
+            alt_question_set = []
+            for delta in [1, -1]:
+                alt_idx = current_idx + delta
+                if 0 <= alt_idx < len(levels):
+                    candidate = self._get_question_set(
+                        levels[alt_idx], current_skill, rubrics=self.context_in.rubrics
+                    )
+                    if candidate:
+                        alt_question_set = candidate
+                        logger.info(
+                            f"Skip: usando perguntas do nível {levels[alt_idx]} "
+                            f"para evitar repetição (proficiency mantido: {current_level})"
+                        )
+                        break
+
+            self.current_question_set = alt_question_set or self._get_question_set(
+                current_level, current_skill, rubrics=self.context_in.rubrics
+            )
+
+            self.agents_params["progress_tracker"] = {
+                "should_continue": True,
+                "previous_skill": current_skill,
+                "new_skill": current_skill,
+                "changed_skill": False,
+            }
+
+        new_question = await self._generate_question()
+        supervisor_message = await self._generate_supervisor_response(new_question)
+
+        self.agents_params["flow"] = {"type": "skip"}
+        self.agents_params["new_proficiency_level"] = self.context_running.new_proficiency_level
+        self.agents_params["new_specific_skill"] = self.context_running.new_specific_skill
+
+        return ChatContextOut(
+            supervisor_message=supervisor_message,
+            params=self.agents_params,
+        )
                 
     def _build_transition_pre_messages(self) -> list[dict] | None:
         tracker = self.agents_params.get("progress_tracker") or {}
