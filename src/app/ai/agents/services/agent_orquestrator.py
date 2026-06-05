@@ -338,6 +338,12 @@ class AgentOrquestrator:
                     count += 1
                 continue
 
+            flow = params.get("flow") or {}
+            if flow.get("type") == "skip":
+                if params.get("new_specific_skill") == specific_skill:
+                    count += 1
+                continue
+
             if not tracker:
                 continue
 
@@ -394,6 +400,9 @@ class AgentOrquestrator:
 
         if validation.reason == "incomplete":
             return await self._handle_incomplete_message(validation)
+        
+        if validation.reason == "skip":
+            return await self._handle_skip()
 
         # PASSO 2: Avaliar resposta
         logger.info("PASSO 2: Avaliando resposta do usuário")
@@ -422,33 +431,103 @@ class AgentOrquestrator:
             supervisor_message=supervisor_message,
             params=self.agents_params,
         )
+    
+    async def _handle_skip(self) -> ChatContextOut:
+        """Usuário desistiu da pergunta atual — avança sem avaliar."""
+        logger.info("Usuário solicitou skip da pergunta atual")
 
-    async def _generate_supervisor_response(
-        self, new_question: str, flow_type: str = "normal"
-    ) -> str:
-        """Gera a resposta do supervisor para retornar ao usuário"""
-        if flow_type == "followup":
-            flow_context = (
-                "### Contexto do Fluxo\n"
-                "A resposta anterior do usuário estava INCOMPLETA.\n"
-                "NÃO resuma nem repita o que o usuário disse.\n"
-                "Vá direto ao ponto: sinalize brevemente (em meia frase) que a resposta "
-                "precisava de mais profundidade, e então faça a nova pergunta.\n"
-            )
+        current_skill = self.context_running.new_specific_skill
+        current_level = self.context_running.new_proficiency_level
+
+        count_messages = self._count_messages_for_skill(
+            self.context_in.message_history,
+            current_skill,
+        )
+
+        if count_messages >= 2:
+            specific_skill_list = list(self.context_in.rubrics.keys())
+            try:
+                idx = specific_skill_list.index(current_skill)
+                next_idx = idx + 1
+
+                if next_idx >= len(specific_skill_list):
+                    self.agents_params["progress_tracker"] = {
+                        "should_continue": False,
+                        "reason": "No more skills available",
+                    }
+                    self.agents_params["flow"] = {"type": "skip"}
+                    return await self._handle_close()
+
+                new_skill = specific_skill_list[next_idx]
+                self.context_running.new_specific_skill = new_skill
+                self.context_running.new_proficiency_level = "analisar"
+                self.current_question_set = self._get_question_set(
+                    "analisar", new_skill, rubrics=self.context_in.rubrics
+                )
+
+                self.agents_params["progress_tracker"] = {
+                    "should_continue": True,
+                    "previous_skill": current_skill,
+                    "new_skill": new_skill,
+                    "changed_skill": True,
+                    "reset_proficiency": True,
+                }
+
+            except ValueError:
+                logger.error(f"Skill não encontrada: {current_skill}")
+                return self._error_response()
         else:
-            flow_context = ""
+            levels = ["lembrar", "compreender", "aplicar", "analisar", "avaliar", "criar"]
+            current_idx = levels.index(current_level.lower()) if current_level.lower() in levels else -1
 
+            alt_question_set = []
+            for delta in [1, -1]:
+                alt_idx = current_idx + delta
+                if 0 <= alt_idx < len(levels):
+                    candidate = self._get_question_set(
+                        levels[alt_idx], current_skill, rubrics=self.context_in.rubrics
+                    )
+                    if candidate:
+                        alt_question_set = candidate
+                        logger.info(
+                            f"Skip: usando perguntas do nível {levels[alt_idx]} "
+                            f"para evitar repetição (proficiency mantido: {current_level})"
+                        )
+                        break
+
+            self.current_question_set = alt_question_set or self._get_question_set(
+                current_level, current_skill, rubrics=self.context_in.rubrics
+            )
+
+            self.agents_params["progress_tracker"] = {
+                "should_continue": True,
+                "previous_skill": current_skill,
+                "new_skill": current_skill,
+                "changed_skill": False,
+            }
+
+        new_question = await self._generate_question()
+        supervisor_message = await self._generate_supervisor_response(new_question)
+
+        self.agents_params["flow"] = {"type": "skip"}
+        self.agents_params["new_proficiency_level"] = self.context_running.new_proficiency_level
+        self.agents_params["new_specific_skill"] = self.context_running.new_specific_skill
+
+        return ChatContextOut(
+            supervisor_message=supervisor_message,
+            params=self.agents_params,
+        )
+
+    async def _generate_supervisor_response(self, new_question: str) -> str:
         end_context = {
             "message_history": self.context_in.get_message_history(4),
             "current_subject": self.context_in.current_specific_skill,
             "generated_question": new_question,
-            "flow_context": flow_context,
+            "flow_context": "",
         }
 
         result = await self.agent_supervisor.run_end(end_context)
-
         self.agents_params["supervisor"] = {"action": "end"}
-
         return result.output.message
 
     def _get_invalid_history(self) -> str:
@@ -587,19 +666,53 @@ class AgentOrquestrator:
         """
         logger.info("Atualizando progresso do chat")
 
+        current_level = self.context_running.new_proficiency_level
+        current_skill = self.context_running.new_specific_skill
+
+        # Verifica se o nível mudou (classificacao != 0)
+        skill_evaluator_params = self.agents_params.get("skill_evaluator", {})
+        classification = skill_evaluator_params.get("classification", 0)
+
+        # Carrega o question set do nível atual
         self.current_question_set = self._get_question_set(
-            proficiency_level=self.context_running.new_proficiency_level,
-            specific_skill=self.context_running.new_specific_skill,
+            proficiency_level=current_level,
+            specific_skill=current_skill,
             rubrics=self.context_in.rubrics,
         )
 
+        # Se classificacao == 0 (nível mantido), usa perguntas do nível acima
+        # para evitar repetição sem alterar o proficiency persistido
+        if classification == 0:
+            levels = ["lembrar", "compreender", "aplicar", "analisar", "avaliar", "criar"]
+            current_idx = levels.index(current_level.lower()) if current_level.lower() in levels else -1
+            next_idx = min(current_idx + 1, len(levels) - 1)
+
+            if next_idx != current_idx:
+                next_level = levels[next_idx]
+                upper_question_set = self._get_question_set(
+                    proficiency_level=next_level,
+                    specific_skill=current_skill,
+                    rubrics=self.context_in.rubrics,
+                )
+                if upper_question_set:
+                    logger.info(
+                        f"Classificacao 0: usando perguntas do nível acima "
+                        f"({current_level} -> {next_level}) sem alterar proficiency persistido"
+                    )
+                    self.current_question_set = upper_question_set
+            else:
+                logger.info(
+                    f"Classificacao 0: já no nível máximo ({current_level}), "
+                    f"mantendo question set atual"
+                )
+
         count_messages = self._count_messages_for_skill(
             self.context_in.message_history,
-            self.context_running.new_specific_skill,
+            current_skill,
         )
 
         logger.info(
-            f"Macrocompetencia: {self.context_running.new_specific_skill}\n"
+            f"Macrocompetencia: {current_skill}\n"
             f"Perguntas já realizadas: {count_messages}"
         )
 
@@ -609,9 +722,7 @@ class AgentOrquestrator:
             specific_skill_list = list(self.context_in.rubrics.keys())
 
             try:
-                specific_skill_idx = specific_skill_list.index(
-                    self.context_running.new_specific_skill
-                )
+                specific_skill_idx = specific_skill_list.index(current_skill)
                 next_idx = specific_skill_idx + 1
 
                 if next_idx >= len(specific_skill_list):
@@ -633,26 +744,26 @@ class AgentOrquestrator:
                 )
 
                 logger.info(
-                    f"Mudando skill: {self.context_in.current_specific_skill} -> "
+                    f"Mudando skill: {current_skill} -> "
                     f"{new_specific_skill}, reset proficiency para 'analisar'"
                 )
 
                 self.agents_params["progress_tracker"] = {
                     "should_continue": True,
-                    "previous_skill": self.context_in.current_specific_skill,
+                    "previous_skill": current_skill,
                     "new_skill": new_specific_skill,
                     "changed_skill": True,
                     "reset_proficiency": True,
                 }
 
             except ValueError:
-                logger.error(f"Skill não encontrada: {self.context_running.new_specific_skill}")
+                logger.error(f"Skill não encontrada: {current_skill}")
                 return False
         else:
             self.agents_params["progress_tracker"] = {
                 "should_continue": True,
-                "previous_skill": self.context_running.new_specific_skill,
-                "new_skill": self.context_running.new_specific_skill,
+                "previous_skill": current_skill,
+                "new_skill": current_skill,
                 "changed_skill": False,
             }
 
@@ -777,7 +888,7 @@ class AgentOrquestrator:
             "reason": "incomplete_answer",
         }
 
-        supervisor_message = await self._generate_supervisor_response(question, flow_type="followup")
+        supervisor_message = await self._generate_supervisor_response(question)
 
         self.agents_params["new_proficiency_level"] = self.context_running.new_proficiency_level
         self.agents_params["new_specific_skill"] = self.context_running.new_specific_skill

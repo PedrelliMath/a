@@ -16,7 +16,7 @@ class ChatContextIn():
 
     def get_message_history(self, num_messages: int | None = None):
         if num_messages is not None and num_messages <= len(self.message_history):
-            messages = self.message_history[:num_messages]
+            messages = self.message_history[-num_messages:]
         else:
             messages = self.message_history
 

@@ -29,136 +29,77 @@ class EvaluationService:
         Constrói a lista de iterations a partir das mensagens da sessão.
         Respostas inválidas do usuário são concatenadas com a resposta válida
         final em um único campo 'response'.
+        Perguntas puladas (skip) são registradas com response=None e skipped=True.
         """
         iterations = []
         pending_question = None
         pending_responses = []
 
-        print(f"\n{'='*80}")
-        print(f"INICIANDO EXTRAÇÃO - Total de mensagens: {len(session.messages)}")
-        print(f"{'='*80}\n")
+        def _flush_iteration(bot_params):
+            """Fecha a iteração pendente e adiciona à lista."""
+            if not pending_question:
+                return
 
-        for idx, msg in enumerate(session.messages):
-            print(f"\n--- Mensagem {idx + 1} ---")
+            is_skip = bot_params.get("flow", {}).get("type") == "skip"
+            achieved = bot_params.get("skill_evaluator", {}).get("achieved_level")
 
+            if is_skip:
+                iterations.append({
+                    "question": pending_question["question"],
+                    "response": None,
+                    "expected_bloom_level": pending_question["expected_bloom_level"],
+                    "achieved_bloom_level": None,
+                    "macro": pending_question["macro"],
+                    "skipped": True,
+                })
+            elif pending_responses:
+                iterations.append({
+                    "question": pending_question["question"],
+                    "response": " | ".join(pending_responses),
+                    "expected_bloom_level": pending_question["expected_bloom_level"],
+                    "achieved_bloom_level": achieved,
+                    "macro": pending_question["macro"],
+                    "skipped": False,
+                })
+
+        for msg in session.messages:
             user_type = msg.get("user_type")
-            text = msg.get("text", "")[:100]
             params = msg.get("params", {})
 
             is_valid = params.get("message_validator", {}).get("is_valid", False)
-            is_greeting = params.get("supervisor", {}).get("action", "") == "greeting"
-            is_closing = params.get("supervisor", {}).get("action", "") == "close"
+            is_greeting = params.get("supervisor", {}).get("action") == "greeting"
+            is_closing = params.get("supervisor", {}).get("action") == "close"
+            is_skip = params.get("flow", {}).get("type") == "skip"
 
-            print(f"user_type: {user_type}")
-            print(f"text: {text}...")
-            print(f"is_valid: {is_valid}")
-            print(f"is_greeting: {is_greeting}")
-            print(f"is_closing: {is_closing}")
-
-            if user_type == "bot" and not is_valid and not is_greeting and not is_closing:
-                print("❌ PULANDO: Mensagem do bot inválida")
+            if user_type == "bot" and not is_valid and not is_greeting and not is_closing and not is_skip:
                 continue
 
             if user_type == "bot":
-                print("🤖 TIPO: BOT")
-
                 if is_greeting:
-                    print("👋 AÇÃO: GREETING")
                     pending_question = {
                         "question": msg.get("text"),
                         "expected_bloom_level": params.get("new_proficiency_level"),
                         "macro": params.get("new_specific_skill"),
                     }
                     pending_responses = []
-                    print(f"✅ Pergunta pendente criada:")
-                    print(f"   - expected_level: {pending_question['expected_bloom_level']}")
-                    print(f"   - macro: {pending_question['macro']}")
 
                 elif is_closing:
-                    print("🏁 AÇÃO: CLOSING")
-                    if pending_question and pending_responses:
-                        achieved = params.get("skill_evaluator", {}).get("achieved_level")
-                        combined_response = " | ".join(pending_responses)
-
-                        print(f"✅ ADICIONANDO ÚLTIMA ITERAÇÃO:")
-                        print(f"   - expected: {pending_question['expected_bloom_level']}")
-                        print(f"   - achieved: {achieved}")
-                        print(f"   - respostas concatenadas: {len(pending_responses)}")
-
-                        iterations.append({
-                            "question": pending_question["question"],
-                            "response": combined_response,
-                            "expected_bloom_level": pending_question["expected_bloom_level"],
-                            "achieved_bloom_level": achieved,
-                            "macro": pending_question["macro"],
-                        })
-                        print(f"📊 Total de iterações agora: {len(iterations)}")
-                        pending_question = None
-                        pending_responses = []
-                    else:
-                        print("⚠️  Não há pergunta/resposta pendente para finalizar")
-                        print(f"   - pending_question existe? {pending_question is not None}")
-                        print(f"   - pending_responses: {len(pending_responses)}")
+                    _flush_iteration(params)
+                    pending_question = None
+                    pending_responses = []
 
                 else:
-                    print("❓ AÇÃO: NOVA PERGUNTA")
-
-                    if pending_question and pending_responses:
-                        achieved = params.get("skill_evaluator", {}).get("achieved_level")
-                        combined_response = " | ".join(pending_responses)
-
-                        print(f"✅ ADICIONANDO ITERAÇÃO:")
-                        print(f"   - expected: {pending_question['expected_bloom_level']}")
-                        print(f"   - achieved: {achieved}")
-                        print(f"   - respostas concatenadas: {len(pending_responses)}")
-
-                        iterations.append({
-                            "question": pending_question["question"],
-                            "response": combined_response,
-                            "expected_bloom_level": pending_question["expected_bloom_level"],
-                            "achieved_bloom_level": achieved,
-                            "macro": pending_question["macro"],
-                        })
-                        print(f"📊 Total de iterações agora: {len(iterations)}")
-                    else:
-                        print("⚠️  Sem pergunta/resposta pendente para adicionar")
-
+                    # Nova pergunta — fecha a anterior
+                    _flush_iteration(params)
                     pending_question = {
                         "question": msg.get("text"),
                         "expected_bloom_level": params.get("new_proficiency_level"),
                         "macro": params.get("new_specific_skill"),
                     }
                     pending_responses = []
-                    print(f"✅ Nova pergunta pendente criada:")
-                    print(f"   - expected_level: {pending_question['expected_bloom_level']}")
-                    print(f"   - macro: {pending_question['macro']}")
 
             elif user_type == "user":
-                print("👤 TIPO: USER")
                 pending_responses.append(msg.get("text", ""))
-                print(f"✅ Resposta acumulada ({len(pending_responses)} no total)")
-
-            else:
-                print(f"⚠️  Tipo desconhecido: {user_type}")
-
-            print(f"Estado atual:")
-            print(f"  - pending_question: {'✓' if pending_question else '✗'}")
-            print(f"  - pending_responses: {len(pending_responses)}")
-
-        print(f"\n{'='*80}")
-        print(f"EXTRAÇÃO FINALIZADA")
-        print(f"Total de iterações extraídas: {len(iterations)}")
-        print(f"{'='*80}\n")
-
-        if iterations:
-            print("📋 RESUMO DAS ITERAÇÕES:")
-            for i, it in enumerate(iterations, 1):
-                print(f"\nIteração {i}:")
-                print(f"  - Pergunta: {it['question'][:80]}...")
-                print(f"  - Resposta: {it['response'][:80]}...")
-                print(f"  - Expected: {it['expected_bloom_level']}")
-                print(f"  - Achieved: {it['achieved_bloom_level']}")
-                print(f"  - Macro: {it['macro']}")
 
         return iterations
 

@@ -80,7 +80,7 @@ end_prompt = """
       termos técnicos isolados.
 
     ### Atenção, você não tem permissão para encerrar a avaliação.
-    {flow_context}
+
     Histórico da Conversa: {message_history}
     Tópico Atual: {current_subject}
     Uma nova pergunta foi gerada para o usuário: '{generated_question}'

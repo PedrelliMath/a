@@ -33,14 +33,15 @@ class AgentMessageValidatorResponse(BaseModel):
         ...,
         description="True se a resposta é válida para avaliação ou complementação.",
     )
-    reason: Literal["valid", "incomplete", "invalid"] = Field(
+    reason: Literal["valid", "incomplete", "invalid", "skip"] = Field(
         ...,
         description="""
         Classificação da resposta:
         - valid: resposta completa e adequada
         - incomplete: resposta parcialmente correta, precisa de complemento
         - invalid: resposta irrelevante, vaga ou fora do contexto
-        """,
+        - skip: usuário solicitou pular/desistir da pergunta atual
+    """,
     )
     explicacao: Optional[str] = Field(
         default=None,
