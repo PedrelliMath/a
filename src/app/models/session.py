@@ -5,10 +5,8 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.database.db import Base
 from uuid import uuid4, UUID
 from datetime import datetime
-from typing import List
-
+from typing import List, Optional
 from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
     from .skill import Skill
     from .evaluation import Evaluation
@@ -18,6 +16,7 @@ class SessionMessageInput(BaseModel):
     """Schema de entrada para mensagem"""
     text: str
 
+
 class SessionMessageOutput(BaseModel):
     """Schema de saída para mensagem"""
     id: UUID
@@ -26,15 +25,18 @@ class SessionMessageOutput(BaseModel):
     created_at: datetime
     params: dict
 
+
 class SessionInput(BaseModel):
     """Schema de entrada para criar sessão"""
     skill_id: UUID
+
 
 class SessionOutput(BaseModel):
     """Schema de saída para sessão"""
     id: UUID
     skill_id: UUID
     user_id: str
+    expiration_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
 
@@ -44,58 +46,54 @@ class Session(Base):
     __tablename__ = 'sessions'
 
     id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), 
-        primary_key=True, 
-        unique=True, 
+        PGUUID(as_uuid=True),
+        primary_key=True,
+        unique=True,
         nullable=False,
         default=uuid4
     )
-
     skill_id: Mapped[PGUUID] = mapped_column(
-        PGUUID(as_uuid=True), 
+        PGUUID(as_uuid=True),
         ForeignKey("skills.id"),
         nullable=False
     )
-
     user_id: Mapped[str] = mapped_column(
-        String(36), 
+        String(36),
         nullable=True,
         index=True
     )
-
     messages: Mapped[list] = mapped_column(
-        JSONB, 
+        JSONB,
         server_default=text("'[]'::jsonb"),
         nullable=False
     )
-
+    expiration_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         server_default=func.now(),
         nullable=False
     )
-    
     updated_at: Mapped[datetime] = mapped_column(
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False
     )
-
     skill: Mapped['Skill'] = relationship(back_populates="sessions")
-
     evaluation: Mapped['Evaluation'] = relationship(uselist=False, back_populates="session")
 
     def to_dict(self, include_messages: bool = False) -> dict:
-        session_dict =  {
-            "id":str(self.id),
-            "skill_id":str(self.skill_id),
-            "user_id":self.user_id,
-            "created_at":self.created_at,
-            "updated_at":self.updated_at
+        session_dict = {
+            "id": str(self.id),
+            "skill_id": str(self.skill_id),
+            "user_id": self.user_id,
+            "expiration_at": self.expiration_at,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
         }
-
         if include_messages:
             session_dict.update({
-                "messages":self.messages
+                "messages": self.messages
             })
-        
         return session_dict

@@ -3,8 +3,10 @@ from app.models.session import Session, SessionInput, SessionOutput, SessionMess
 from app.models.current_user import CurrentUser
 from app.repository.session import SessionRepository
 from app.repository.skill import SkillRepository
+from app.repository.assessment_properties import AssessmentPropertiesRepository
 from uuid import UUID
 from typing import List
+from datetime import datetime, timedelta
 
 from app.ai.agents.services.agent_orquestrator import create_agent_orquestrator
 
@@ -13,13 +15,22 @@ from app.logger import get_log
 logger = get_log(__name__)
 
 class SessionService:
-    def __init__(self, session_repository: SessionRepository, skill_repository: SkillRepository):
+    def __init__(
+        self,
+        session_repository: SessionRepository,
+        skill_repository: SkillRepository,
+        assessment_properties_repository: AssessmentPropertiesRepository
+    ):
         self.session_repository = session_repository
         self.skill_repository = skill_repository
+        self.assessment_properties_repository = assessment_properties_repository
     
     def has_owned_resource(self, session: Session, current_user: CurrentUser):
         if session.user_id != current_user.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+
+    def has_expired(self, session: Session) -> bool:
+        return bool(session.expiration_at) and datetime.now() > session.expiration_at
 
     async def create_session(self, current_user: CurrentUser, session_input: SessionInput) -> SessionOutput:
         skill = self.skill_repository.get_by_id(session_input.skill_id)
@@ -37,8 +48,15 @@ class SessionService:
             )
         
         try:
+            properties = self.assessment_properties_repository.get_or_create()
+            expiration_at = datetime.now() + timedelta(minutes=properties.duration_minutes)
 
-            session_create = Session(user_id=current_user.id, skill_id=session_input.skill_id, messages=[])
+            session_create = Session(
+                user_id=current_user.id,
+                skill_id=session_input.skill_id,
+                messages=[],
+                expiration_at=expiration_at
+            )
             session = self.session_repository.create(session_create)
             await self._start_session(session, current_user)
             return session.to_dict()
@@ -50,18 +68,6 @@ class SessionService:
             )
 
     def get_session_by_id(self, current_user: CurrentUser, session_id: UUID) -> SessionOutput:
-        """
-        Busca uma sessão por ID.
-        
-        Args:
-            session_id: ID da sessão
-            
-        Returns:
-            SessionOutput: Sessão encontrada
-            
-        Raises:
-            HTTPException: 404 se a sessão não for encontrada
-        """
         session = self.session_repository.get_by_id(session_id)
         
         self.has_owned_resource(session, current_user)
@@ -75,15 +81,6 @@ class SessionService:
         return session.to_dict()
 
     def list_sessions(self, current_user: CurrentUser, limit: int = 100) -> List[SessionOutput]:
-        """
-        Lista todas as sessões ordenadas por data de criação (mais recentes primeiro).
-        
-        Args:
-            limit: Número máximo de sessões a retornar
-            
-        Returns:
-            List[SessionOutput]: Lista de sessões
-        """
         if limit < 1 or limit > 1000:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -101,19 +98,6 @@ class SessionService:
         return [session.to_dict() for session in sessions]
 
     def list_sessions_by_skill(self, current_user: CurrentUser, skill_id: UUID, limit: int = 100) -> List[SessionOutput]:
-        """
-        Lista todas as sessões de uma skill específica.
-        
-        Args:
-            skill_id: ID da skill
-            limit: Número máximo de sessões a retornar
-            
-        Returns:
-            List[SessionOutput]: Lista de sessões da skill
-            
-        Raises:
-            HTTPException: 404 se a skill não existir
-        """
         skill = self.skill_repository.get_by_id(skill_id)
         
         if not skill:
@@ -143,33 +127,12 @@ class SessionService:
         session_id: UUID,
         message_input: SessionMessageInput
     ) -> List[SessionMessageOutput]:
-        """
-        Adiciona mensagem do usuário e obtém resposta do bot
-        
-        Args:
-            session_id: UUID da sessão
-            message_input: Mensagem do usuário
-            params: Parâmetros adicionais (opcional)
-            
-        Returns:
-            dict com mensagem do bot e metadados
-            
-        Fluxo:
-        1. Validar input
-        2. Buscar session
-        3. Salvar mensagem do usuário
-        4. Processar com AgentOrquestrator
-        5. Salvar mensagem do bot
-        6. Retornar resposta
-        """
-        # Validar input
         if not message_input.text or not message_input.text.strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="O texto da mensagem não pode estar vazio"
             )
         
-        # Buscar session
         session = self.session_repository.get_by_id(session_id)
         if not session:
             raise HTTPException(
@@ -178,9 +141,14 @@ class SessionService:
             )
 
         self.has_owned_resource(session, current_user)
+
+        if self.has_expired(session):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Sessão expirada. Não é possível enviar novas mensagens"
+            )
         
         try:
-            # 1. Salvar mensagem do usuário
             logger.info(f"Salvando mensagem do usuário: {message_input.text[:50]}...")
             self.session_repository.add_message(
                 session=session,
@@ -188,15 +156,12 @@ class SessionService:
                 user_type="user"
             )
             
-            # 2. Recarregar session para pegar a mensagem do usuário
             session = self.session_repository.get_by_id(session_id)
             
-            # 3. Criar orquestrador e processar
             logger.info("Processando com AgentOrquestrator...")
             orchestrator = create_agent_orquestrator(session, user_name=current_user.name)
             response = await orchestrator.get_response(message_input.text)
             
-            # 4. Salvar pre-mensagens do bot (ex: frase de transicao entre topicos)
             saved_messages: list[dict] = []
             for pre in (response.pre_messages or []):
                 logger.info(f"Salvando pre-mensagem do bot: {pre['text'][:50]}...")
@@ -209,7 +174,6 @@ class SessionService:
                     )
                 )
 
-            # 5. Salvar mensagem principal do bot
             logger.info(f"Salvando mensagem do bot: {response.supervisor_message[:50]}...")
             saved_messages.append(
                 self.session_repository.add_message(
@@ -232,17 +196,7 @@ class SessionService:
             )
     
     async def _start_session(self, session: Session, current_user: CurrentUser = None):
-        """
-        Inicia uma sessão com saudação do bot
-        
-        Args:
-            session_id: sessão
-            
-        Returns:
-            dict com mensagem de saudação e metadados
-        """   
         try:
-            # Verificar se já tem mensagens
             session_dict = session.to_dict(include_messages=True)
             if session_dict.get('messages'):
                 raise HTTPException(
@@ -250,13 +204,11 @@ class SessionService:
                     detail="Sessão já foi iniciada"
                 )
             
-            # Criar orquestrador e processar sem mensagem = saudação
             logger.info("Iniciando sessão com saudação...")
             user_name = current_user.name if current_user else None
             orchestrator = create_agent_orquestrator(session, user_name=user_name)
             response = await orchestrator.get_response(user_message=None)
             
-            # Salvar saudação do bot
             logger.info(f"Salvando saudação: {response.supervisor_message[:50]}...")
             bot_message_input = SessionMessageInput(
                 text=response.supervisor_message
@@ -279,15 +231,6 @@ class SessionService:
             )
 
     def delete_session(self, current_user: CurrentUser, session_id: UUID) -> None:
-        """
-        Deleta permanentemente uma sessão do banco de dados.
-        
-        Args:
-            session_id: ID da sessão a ser deletada
-            
-        Raises:
-            HTTPException: 404 se a sessão não for encontrada
-        """
         session = self.session_repository.get_by_id(session_id)
         
         if not session:
@@ -301,18 +244,6 @@ class SessionService:
         self.session_repository.delete(session_id)
 
     def get_session_messages(self, current_user: CurrentUser, session_id: UUID) -> List[SessionMessageOutput]:
-        """
-        Retorna todas as mensagens de uma sessão.
-        
-        Args:
-            session_id: ID da sessão
-            
-        Returns:
-            List[SessionMessageOutput]: Lista de mensagens da sessão
-            
-        Raises:
-            HTTPException: 404 se a sessão não for encontrada
-        """
         session = self.session_repository.get_by_id(session_id)
 
         self.has_owned_resource(session, current_user)
@@ -326,18 +257,6 @@ class SessionService:
         return session.to_dict(include_messages=True)['messages']
 
     def get_session_message_count(self, current_user: CurrentUser, session_id: UUID) -> int:
-        """
-        Retorna o número de mensagens em uma sessão.
-        
-        Args:
-            session_id: ID da sessão
-            
-        Returns:
-            int: Número de mensagens
-            
-        Raises:
-            HTTPException: 404 se a sessão não for encontrada
-        """
         session = self.session_repository.get_by_id(session_id)
 
         self.has_owned_resource(session, current_user)
@@ -353,16 +272,7 @@ class SessionService:
 
 def get_session_service(
     session_repository: SessionRepository,
-    skill_repository: SkillRepository
+    skill_repository: SkillRepository,
+    assessment_properties_repository: AssessmentPropertiesRepository
 ) -> SessionService:
-    """
-    Factory function para criar uma instância do SessionService.
-    
-    Args:
-        session_repository: Instância do SessionRepository
-        skill_repository: Instância do SkillRepository
-        
-    Returns:
-        SessionService: Instância do serviço
-    """
-    return SessionService(session_repository, skill_repository)
+    return SessionService(session_repository, skill_repository, assessment_properties_repository)

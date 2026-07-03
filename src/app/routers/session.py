@@ -5,6 +5,7 @@ from app.models.current_user import CurrentUser
 from app.services.session import SessionService, get_session_service
 from app.repository.session import get_session_repository
 from app.repository.skill import get_skill_repository
+from app.repository.assessment_properties import get_assessment_properties_repository
 from app.database.db import get_db
 from app.auth.auth import get_current_user, oauth2_scheme
 from app.models.current_user import CurrentUser
@@ -22,7 +23,8 @@ def get_session_service_dep(
 ) -> SessionService:
     session_repo = get_session_repository(db)
     skill_repo = get_skill_repository(db)
-    return get_session_service(session_repo, skill_repo)
+    assessment_repo = get_assessment_properties_repository(db)
+    return get_session_service(session_repo, skill_repo, assessment_repo)
 
 @router.post(
     "/",

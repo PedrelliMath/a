@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from app.routers import skill, session, evaluation
+from app.routers import skill, session, evaluation, assessment_properties
 
 from app.config import settings
 from app.database.db import engine, Base
@@ -134,6 +134,11 @@ app.include_router(
 
 app.include_router(
     evaluation.router,
+    prefix="/api/v1"
+)
+
+app.include_router(
+    assessment_properties.router,
     prefix="/api/v1"
 )
 
