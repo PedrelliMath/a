@@ -37,7 +37,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     command: ["postgres", "-c", "port=${POSTGRES_PORT}"]
     ports:
-      - "${POSTGRES_PORT}"
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
