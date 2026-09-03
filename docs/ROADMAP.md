@@ -1,265 +1,314 @@
-# Roadmap de melhorias — Koru
+# Roadmap — Koru v2
 
-Documento de trabalho. Deriva de `docs/koru-v2-spec.md`, mas não é a spec: aqui só entra o que
-foi **verificado no código atual**, com caminho de arquivo e critério de aceite.
+Plano de execução de `docs/koru-v2-spec.md`. A spec descreve o destino e a §14 define a ordem;
+este documento é o mesmo caminho com status, endereço no código e bloqueio explícito por etapa.
 
-Referência de leitura obrigatória antes de mexer em qualquer coisa estrutural: `docs/koru-v2-spec.md`.
-Os princípios P1–P8 (spec §2) valem como critério de rejeição de PR.
+**A espinha dorsal são as Fases 0–7 da spec §14, e a ordem é obrigatória.** Não há atalho: cada
+fase existe porque a seguinte depende do aceite dela. Pular a Fase 0 significa escrever rubrica por
+intuição; pular a Fase 2 significa medir com instrumento que não existe.
 
----
-
-## Como este roadmap é organizado
-
-A spec descreve o destino (v2) e as correções imediatas (§15). Este roadmap organiza o caminho em
-**ondas**, ordenadas por uma regra só: *informação destruída hoje é irrecuperável amanhã*.
-
-Toda sessão que roda agora perde permanentemente o `skill_analysis` por competência. Isso põe as
-ondas 1 e 2 antes de qualquer reconstrução: elas são baratas e param a sangria enquanto o v2 é
-construído em paralelo.
-
-| Onda | Tema | Bloqueia | Status |
-|---|---|---|---|
-| 0 | Higiene, verificação e código morto | tudo | **aplicada** |
-| 1 | Parar de destruir evidência | Fase 3 da spec | **aplicada** |
-| 2 | Justiça estrutural barata | nada | **parcial** |
-| 3 | Corretude de runtime | produção | pendente |
-| 4 | Rubrica e golden set (spec Fases 0–3) | Fase 4 | pendente |
-| 5 | Estado explícito e grafo (spec Fase 4) | Fases 5–7 | pendente |
-| 6 | Item bank fixo e supervisor (spec Fases 2, 5) | Fase 7 | pendente |
-| 7 | Auditoria, LGPD e calibração (spec Fases 6–7) | — | pendente |
+Os princípios P1–P8 (§2) valem como critério de rejeição de PR, em qualquer fase.
 
 ---
 
-## Estado atual verificado
+## Onde estamos
 
-Levantamento feito lendo o repositório, não a spec. Cada linha tem endereço.
+| Etapa | Situação |
+|---|---|
+| §15 Correções imediatas | 5 de 7 aplicadas |
+| Fase 0 — Ancoragem | **não iniciada — é o gargalo** |
+| Fases 1–7 | não iniciadas |
+| Decisões D1, D2, D3 | as três em aberto |
 
-### O que funciona e deve sobreviver
+Nenhuma fase do v2 começou. O que foi feito até aqui é a §15, que por definição **não espera** pela
+reconstrução, mais a infraestrutura de verificação que o P7 exige para qualquer afirmação de
+qualidade ser checável.
 
-- **Separação parcial LLM/código.** O fine-tune devolve nível de Bloom por habilidade;
-  `compare_bloom_levels` e a agregação são código puro
-  (`src/app/ai/agents/skill_evaluator.py:243`). É a semente de P1.
-- **`end_prompt` do supervisor** (`src/app/ai/agents/prompts/supervisor.py:37`). Postura avaliativa
-  neutra calibrada. Anti-requisito da spec: não reescrever.
-- **Avaliação por habilidade individual já existe.** `skill_analysis` é produzido em
-  `skill_evaluator.py:363` com nível por competência.
-- **`justification_system_prompt_template`** (`prompts/skill_evaluator.py:8`) já exige citação de
-  trecho e proíbe tautologia. É o mais próximo de rubrica que existe no sistema.
+### Os princípios hoje
 
-### O que está quebrado (verificado)
-
-| # | Onde | O quê |
+| | Princípio | Situação |
 |---|---|---|
-| B1 | `services/agent_orquestrator.py:554` | `_generate_supervisor_response` definido duas vezes; a primeira é copy-paste do `_handle_skip` e referencia `current_level`/`current_skill` fora de escopo. Python usa a segunda; a primeira nunca roda e nunca rodaria. |
-| B2 | `ai/agents/helpers/state_initializer.py:1` | importa `app.db.models` e `app.agents.schemas.agents.graph.state`, inexistentes. ImportError garantido. |
-| B3 | `ai/agents/skill_evaluator.py:545` | bloco `return Output(...)` inalcançável, depois do `return`/`except` de `_generate_skill_justifications`. |
-| B4 | `prompts/supervisor.py:31` + `supervisor.py:44` | `_handle_invalid_message` gera uma pergunta reformulada com LLM (`_regenerate_question`) e **joga fora**: `retype_prompt` só interpola `{message_history}`. Uma chamada de LLM paga por resposta inválida, descartada. |
-| B5 | `services/session.py:244`, `services/evaluation.py:219` | passam `UUID` para `repository.delete()`, que espera a entidade ORM. `db.delete(UUID)` estoura. `DELETE /sessions/{id}` e `DELETE /evaluations/{id}` estão quebrados. |
-| B6 | `services/session.py:73`, `:255`, `:265` | `has_owned_resource(session, ...)` é chamado **antes** do teste `if not session`. Sessão inexistente vira `AttributeError`/500 em vez de 404. |
-| B7 | `repository/session.py:52` | `add_message` faz read-modify-write do JSONB inteiro sem lock. Duas mensagens simultâneas do mesmo candidato perdem uma. |
-| B8 | `models/evaluation.py:38` | `EvaluationOutput.iterations: dict`, mas a coluna e o valor são `list`. Schema mente. |
-| B9 | `services/agent_orquestrator.py:181` | `except Exception` genérico devolvendo "Desculpe, ocorreu um erro interno". Viola P8 diretamente. Mesmo padrão em `skill_evaluator.py:487` e `services/session.py`. |
-| B10 | `main.py:35` | `Base.metadata.create_all` no lifespan, sem Alembic. Não há migração; as tabelas novas da spec §9 não têm por onde entrar. |
-| B11 | `skill_evaluator.py:82` | I/O de disco síncrono + pandas dentro do caminho async de request, gravando em `artifacts/` — que é efêmero. O `skill_analysis` estruturado só existe ali e some no deploy. |
-| B12 | `updateskill.json` | O banco está **pior do que a spec descreve**. `scripts/validate_question_bank.py` mede: 22 das 24 células estão abaixo do mínimo de 3 itens da spec §4.1. "Autoconhecimento" tem 1 item por nível nos 6 níveis; os outros 3 blocos têm 2 em quase toda célula. Só 2 células no banco inteiro atendem ao mínimo. Skip e reformulação não têm item alternativo em lugar nenhum. |
-| B13 | `services/agent_orquestrator.py:232` | `available_skills[0]` — todo candidato começa no mesmo bloco, sistematicamente penalizado pelo efeito de primeira resposta. |
-| B14 | repositório | nenhum teste, nenhum linter, nenhum CI. P7 ("nada é medido sem ser medível") não tem como ser cumprido. |
-| B15 | `.DS_Store` × 6 | versionados apesar do `.gitignore`. |
-| B16 | `config.py:52` + `agent_orquestrator.py:145` | `openai_api_key` existe em `Settings` mas o avaliador lê `os.getenv("OPENAI_API_KEY")` direto. Dois caminhos de configuração para a mesma credencial. |
-| B17 | `config.py:133` + `database/db.py:8` | `settings = Settings()` e `create_engine(...)` rodam **em tempo de import**. Importar qualquer módulo de `app` exige a configuração inteira, credenciais inclusive, e abre um engine de banco. Foi o que impediu qualquer teste de existir. Contornado por `tests/conftest.py`; a correção é settings preguiçoso/injetado. |
-| B18 | `config.py:73`, `:77` | `helicone_api_key` e `openai_api_key` declarados `SecretStr = Field(default=None)`. `SecretStr` não aceita `None`: o default nunca funciona e as duas variáveis são, na prática, obrigatórias. |
-| B19 | `observability/helicone_decorator.py:117` | a exceção era capturada em `error` e nunca usada. Chamada de agente que falha ficava indistinguível de uma bem-sucedida na observabilidade. |
-
-### Os problemas estruturais (spec §1.2)
-
-Estes não são bugs, são consequências do desenho. Só saem nas ondas 4–6.
-
-- **Pr1. Não existe rubrica.** `skill.questions.rubrics` é `bloco → nível → lista de perguntas`.
-  Sem critério, sem gate, sem escala. Verificado em `updateskill.json`.
-- **Pr2. Informação destruída todo turno.** O avaliador produz nível por habilidade; a votação por
-  maioria (`skill_evaluator.py:406`) colapsa em um `int` de -1 a 1. O detalhe só sobrevive em CSV local.
-- **Pr3. O avaliador não vê a pergunta.** `dados_classificacao = {"habilidades_macro": [...]}`
-  (`skill_evaluator.py:359`). O enunciado é recebido e ignorado.
-- **Pr4. Candidatos não são comparáveis.** Perguntas geradas em runtime com `temperature=0.3`.
-- **Pr5. Viés de registro verbal.** Nunca foi medido.
+| P1 | O LLM observa, o código decide | 🟡 a agregação é código, mas o agente ainda devolve nível e a progressão é voto de maioria |
+| P2 | Toda afirmação avaliativa cita a fonte | ❌ o prompt pede trecho; nada verifica em código |
+| P3 | O estado é explícito e persistido | ❌ estado ainda é derivado varrendo `session.messages` |
+| P4 | A rubrica nunca chega ao gerador | ⚪ vale por vacuidade — não existe rubrica |
+| P5 | Reprocessamento sem LLM | ❌ mas o C1 é o pré-requisito: agora existe o que reprocessar |
+| P6 | Mesmo estímulo na mesma posição | ❌ `question_generator` gera em runtime a `temperature=0.3` |
+| P7 | Nada é medido sem ser medível | 🟡 CI, 31 testes e 2 dos 6 scripts |
+| P8 | Falha explícita | ❌ 23 `except Exception` no código |
 
 ---
 
-## Onda 0 — Higiene, verificação e código morto ✅
+## Pré-fase — §15 Correções imediatas
 
-Barato, sem risco, destrava tudo que vem depois. O ponto não é a limpeza: é que sem teste e sem CI
-nenhuma afirmação de qualidade das ondas seguintes pode ser verificada (P7).
+Não esperam pelo v2 e valem mesmo que a reconstrução seja adiada.
 
-- [x] Remover a duplicata de `_generate_supervisor_response` (B1) — spec C4
-- [x] Deletar `helpers/state_initializer.py` (B2) — spec C5
-- [x] Remover o `return` inalcançável do avaliador (B3)
-- [x] Aproveitar a pergunta reformulada no `retype_prompt` (B4)
-- [x] Registrar em log a falha de agente que era engolida na observabilidade (B19)
-- [x] Remover 35 imports mortos apontados pelo lint
-- [x] Destrackear os `.DS_Store` (B15)
-- [x] `pytest` + `ruff` como dev deps, suíte de testes das funções puras (B14)
-- [x] CI rodando lint + testes em todo push/PR (B14)
-- [x] `scripts/check_verbosity_bias.py` (spec C3, P7)
-- [x] `scripts/validate_question_bank.py` — detecta células com menos de 3 itens (spec C6, P7)
+| | Correção | Situação |
+|---|---|---|
+| C1 | Persistir `skill_analysis` em vez do voto | ✅ aplicada |
+| C2 | Passar `question` ao avaliador | ✅ aplicada, sob observação |
+| C3 | Rodar `check_verbosity_bias.py` nos dados existentes | 🟡 **ferramenta existe, medição não aconteceu** |
+| C4 | Remover a duplicata de `_generate_supervisor_response` | ✅ aplicada |
+| C5 | Deletar `helpers/state_initializer.py` | ✅ aplicada |
+| C6 | Preencher as células vazias do banco | ❌ bloqueada em autoria de conteúdo |
+| C7 | Randomizar a ordem dos blocos | ✅ aplicada |
 
-**Aceite:** `pdm run test` (31 testes) e `pdm run lint` passam; CI verde. O
-`validate_question_bank.py` **falha de propósito**: o banco está mesmo incompleto, e é isso que
-ele existe para mostrar. No CI ele roda como informativo, para não travar merge por um problema
-de conteúdo — mas fica visível em todo build.
+**C3 é a pendência que mais incomoda.** O script roda, mas encontra 1 par nos dados versionados e
+se recusa a concluir abaixo de 20 — a pergunta que ele existe para responder (*o avaliador lê
+complexidade cognitiva ou sofisticação verbal?*) segue sem resposta. Só falta apontar `--dir`
+para os artefatos de observabilidade reais. É a medição mais barata e mais séria que resta.
 
-**Sobre `check_verbosity_bias.py`:** roda, mas com os dados versionados no repositório encontra
-**1 par**. Ele se recusa a concluir qualquer coisa abaixo de 20 pares, em vez de imprimir um
-número sem significado. Para responder a pergunta de fato, apontar `--dir` para os artefatos de
-observabilidade reais. Isso continua sendo a primeira medição a fazer (spec C3).
+**Sobre C2.** O fine-tune `bloom-evaluator` foi treinado com um payload sem `pergunta`.
+Acrescentar o campo muda a distribuição de entrada. O efeito só é mensurável com o golden set da
+Fase 3 — até lá, mudança sob observação.
 
-## Onda 1 — Parar de destruir evidência ✅
+**Sobre C6.** `scripts/validate_question_bank.py` mede a lacuna: **22 das 24 células** estão abaixo
+do mínimo de 3 itens da §4.1, não apenas "Autoconhecimento" como a spec supunha. Só 2 células no
+banco inteiro atendem. Autoria de item é decisão de conteúdo — o item é o instrumento de medição,
+e não deve ser gerado por agente sem revisão humana. A Fase 2 absorve isso.
 
-A onda mais urgente do roadmap. Cada dia que passa sem ela é um dia de sessões cujo dado por
-competência é perdido para sempre. Não depende de nenhuma decisão pendente.
+---
 
-- [x] **C1 — Persistir `skill_analysis` estruturado.** O nível por competência passa a ir para
-  `params["skill_evaluator"]["skill_analysis"]` e daí para `evaluations.iterations`, em vez de
-  virar a string `"skill:0, skill:1"`.
-- [x] **C2 — Passar o enunciado ao avaliador.** `dados_classificacao` passa a levar `pergunta`
-  junto de `habilidades_macro`. Corrige Pr3 e é pré-requisito para aposentar o `message_validator`.
+## Fase 0 — Exercício de ancoragem
 
-**Aceite:** uma sessão completa produz, em `evaluations.iterations`, um registro por turno com
-`skill_analysis` contendo `skill`, `expected_bloom_level`, `achieved_bloom_level` e `adequacao`.
-Nenhuma informação do avaliador depende mais do CSV em `artifacts/`.
+**Sem código.** Custa uma tarde e é o gargalo de tudo que vem depois.
 
-**Nota sobre C2 e o fine-tune.** O modelo `bloom-evaluator` foi treinado com um payload que não
-tinha `pergunta`. Acrescentar o campo muda a distribuição de entrada. O comportamento observado
-precisa ser conferido contra respostas conhecidas antes de ir para produção — e é exatamente
-o que o golden set da Onda 4 vai permitir medir. Até lá, tratar como mudança sob observação.
+1. Selecionar 20 transcrições reais de sessões já rodadas.
+2. Pedir a três pessoas do time que marquem, em cada uma, **em que ponto teriam mudado de assunto**.
+   Sem discutir entre si.
+3. Comparar as marcações.
 
-## Onda 2 — Justiça estrutural barata 🟡
+Se concordam na maioria dos casos, o que as respostas marcadas têm em comum — exemplo específico,
+resultado mensurável, decisão justificada — vira o texto dos `evidencia_gate`.
 
-Medidas da spec §6.1 que não dependem do item bank. São as que dão mais justiça por linha de código.
+Se discordam muito, **o problema não é o algoritmo.** Nenhuma regra de parada satisfaz um time que
+não concorda sobre o que é evidência suficiente, e a conversa que precisa acontecer é sobre a
+rubrica, não sobre código.
 
-- [x] **C7 — Randomizar a ordem dos blocos** com seed determinística derivada do `session_id`.
-  Reprodutível, auditável, e elimina a penalidade fixa do primeiro bloco (B13).
-- [ ] **C6 — Preencher as células vazias do banco** (B12). *Bloqueado: autoria de conteúdo.*
-  `validate_question_bank.py` já aponta o que falta. Escrever item de avaliação é decisão de
-  conteúdo do time — não deve ser gerado por agente sem revisão humana, porque o item é o
-  instrumento de medição.
-- [ ] **Item de aquecimento.** O primeiro item da sessão não pontua. Elimina, para todos
-  igualmente, a penalidade da primeira resposta. Depende de C6 para ter item sobrando.
-- [ ] **D2 — Orçamento em itens, não em minutos.** Hoje `expiration_at` vem de
-  `duration_minutes` (`services/session.py:56`). Limite de tempo favorece quem digita rápido, o que
-  é variância irrelevante ao construto. Manter tempo só como timeout operacional generoso.
-  *Bloqueado: decisão do time.*
+**Aceite (spec §14):** `evidencia_gate` escrito para pelo menos um bloco, e a decisão D3 tomada
+com base em dados.
 
-**Aceite de C7:** duas sessões da mesma skill com `session_id` diferentes começam em blocos
-diferentes; a mesma `session_id` sempre produz a mesma ordem (teste automatizado).
+**Produz:** o golden set inicial (transcrições já vêm com julgamento humano anexado) e a resposta
+de D3.
 
-## Onda 3 — Corretude de runtime
+**Bloqueia:** Fases 1, 2 e 3.
 
-Bugs que quebram endpoints ou corrompem dados. Independentes do v2 — valem mesmo que a
-reconstrução seja abandonada.
+---
 
-- [ ] B5 — corrigir as chamadas de `delete` (passar entidade, não UUID) + teste de regressão
-- [ ] B6 — checar `if not session` antes de `has_owned_resource` em todos os serviços
-- [ ] B7 — `SELECT ... FOR UPDATE` na sessão no início do turno (spec §9)
-- [ ] B8 — `EvaluationOutput.iterations: list[dict]`
-- [ ] B10 — introduzir Alembic; parar de criar schema por `create_all`
-- [ ] B11 — tirar o I/O de artefatos do caminho de request (o dado já vai para o banco pela Onda 1)
-- [ ] B16 — credencial da OpenAI só via `settings`
-- [ ] B17 — settings e engine deixam de ser instanciados em tempo de import (destrava testar
-      qualquer coisa que toque `app.config`, e remove o `conftest.py` de contorno)
-- [ ] B18 — `helicone_api_key` e `openai_api_key` com tipo honesto (`SecretStr | None`)
-- [ ] B9 — remover os `except Exception` que devolvem mensagem cordial (P8). **Fazer por último
-  nesta onda:** hoje eles escondem os bugs acima; tirar antes de corrigi-los troca 500 silencioso
-  por 500 barulhento sem ganho.
+## Fase 1 — Domínio e motor de decisão, sem LLM
 
-**Aceite:** `DELETE /sessions/{id}` e `DELETE /evaluations/{id}` respondem 204; sessão inexistente
-responde 404; teste de concorrência com duas mensagens simultâneas não perde nenhuma; `alembic
-upgrade head` reproduz o schema do zero.
+`domain/` e `engine/` completos. Nenhuma chamada de modelo nesta fase.
 
-## Onda 4 — Rubrica e golden set (spec Fases 0–3)
+- `domain/bloom.py` — `BloomLevel`, `BLOOM_ORDER`
+- `domain/items.py` — `Item`, `Criterio`, `AntiCriterio`, `ItemFormat`
+- `domain/evidence.py` — `Evidencia` e schemas
+- `domain/state.py` — `AssessmentState`, `EstadoBloco`, `EstadoCompetencia`, `TurnoRegistro`
+- `engine/progression.py` — `decidir_proximo_passo(estado, evidencia) -> Decisao`
+- `engine/agreement.py` — a regra de concordância da §5.1
+- `engine/config.py` — `MIN_TURNOS_BLOCO`, `TETO_TURNOS_BLOCO`, `TOLERA_ADJACENTE` etc.
 
-O coração do problema. Sem rubrica, "boa evidência" é intuição individual e um resultado
-contestado não tem defesa.
+`decidir_proximo_passo` é a **fronteira estável** entre a regra v2.0 (concordância) e a v2.1
+(erro padrão, 1PL). Projetar a v2.0 já sabendo que a v2.1 troca só a implementação interna.
 
-- [ ] **Fase 0 — exercício de ancoragem** (spec §12.1). Sem código, custa uma tarde: 20
-  transcrições, 3 pessoas marcando onde teriam mudado de assunto, sem discutir entre si.
-  Resolve D3 e produz o golden set inicial.
-- [ ] `domain/evidence.py` — `Evidencia`, `EvidenciaCriterio`, `AntiCriterioDetectado`
-- [ ] `domain/items.py` — `Criterio` com `evidencia_gate` escrito a partir da Fase 0
-- [ ] Migrar `AgentSkillEvaluator` do cliente OpenAI direto para `Agent` do Pydantic AI com
-  `output_type=Evidencia` (com cuidado: o fine-tune continua sendo o modelo)
-- [ ] `validar_evidencia` — trecho citado que não existe na resposta zera o score (P2)
-- [ ] Anotar 100 casos; suite `pydantic_evals` em `evals/`
+**Aceite (spec §14):** `pytest` passa; simulação com respondente sintético não produz loop nem
+encerramento prematuro; a regra de concordância reproduz as marcações humanas da Fase 0 em pelo
+menos **70%** das transcrições.
 
-**Aceite (spec Fase 3):** concordância adjacente > 0.85; taxa de trecho alucinado < 0.05;
-`check_verbosity_bias.py` < 0.4.
+**Substitui:** `count_messages >= 2` como regra de parada, e o `_get_current_state` que reconstrói
+estado varrendo mensagens (`agent_orquestrator.py`).
 
-**Antes de escrever o agente:** instalar a skill oficial do Pydantic AI. A API mudou na v2 e o
-código atual usa a antiga. Não escrever de memória.
+**Nota:** `TOLERA_ADJACENTE` merece A/B contra os dados anotados. Com 6 níveis, concordância exata
+pode ser exigente demais e estourar o teto com frequência.
 
-## Onda 5 — Estado explícito e grafo (spec Fase 4)
+---
 
-- [ ] `domain/state.py` — `AssessmentState` como única fonte de verdade (P3)
-- [ ] `engine/progression.py` — `decidir_proximo_passo(estado, evidencia) -> Decisao`, a fronteira
-      estável entre a regra v2.0 (concordância) e a v2.1 (erro padrão / IRT)
-- [ ] `engine/agreement.py` — regra de concordância da spec §5.1
-- [ ] Tabelas `assessment_states`, `turns`, `evidence_scores` (spec §9), append-only
-- [ ] Grafo com `pydantic_graph`; `docs/graph.md` gerado e verificado no CI
-- [ ] `POST /sessions/{id}/reprocess` — recomputa sem LLM
+## Fase 2 — Item bank
 
-**Aceite:** sessão completa ponta a ponta; `/reprocess` reproduz o resultado sem nenhuma chamada de
-LLM. Se `/reprocess` não funciona, P5 falhou e a arquitetura falhou junto.
+Autorar itens com critérios para **um bloco piloto**, mais âncoras e aquecimento. Conteúdo curado
+offline, versionado, nunca gerado em runtime.
 
-**Substitui:** `count_messages >= 2` como regra de parada, e a reconstrução de estado varrendo
-`session.messages` (`agent_orquestrator.py:203`).
+- `bank/loader.py`, `bank/validate.py`
+- Mínimo 3 itens por célula, formatos variados (nunca 3 `DIRETA` juntos)
+- 3 a 4 itens `ancora`, distribuídos entre blocos
+- 1 item `aquecimento` por sessão, sempre o primeiro, nunca pontuado
 
-## Onda 6 — Item bank fixo e supervisor (spec Fases 2, 5)
+**Aceite (spec §14):** `bank/validate.py` passa; 3 itens em toda célula do bloco piloto.
 
-- [ ] `bank/` com itens versionados, 3 por célula, formatos variados, 3–4 âncoras
-- [ ] `bank/validate.py` (sucessor de `scripts/validate_question_bank.py`)
-- [ ] Remover `question_generator.py` — geração em runtime viola P6 e causou o efeito formulário
-- [ ] Remover `message_validator.py` — absorvido por `Evidencia.respondeu_a_pergunta`
-- [ ] Remover `helpers/transition_phrases.py` — `ponto_forte_anterior` torna a frase sorteada
-      desnecessária, e lista finita o usuário detecta rápido
-- [ ] Supervisor apresenta o enunciado fixo; evidência do turno anterior chega a ele
+**Absorve:** C6 e o `scripts/validate_question_bank.py` atual, que vira `bank/validate.py`.
+
+**Aproveitável do v1 (§17):** as perguntas existentes viram `enunciado` de itens `DIRETA` — cada
+célula ainda precisa de dois itens adicionais em outro formato. Os `bloom_levels` com descrição,
+`acima` e `abaixo` são reaproveitados integralmente.
+
+**Depende de:** Fase 0, que produz o texto dos `evidencia_gate`.
+
+---
+
+## Fase 3 — Avaliador e golden set
+
+- Migrar `AgentSkillEvaluator` do cliente OpenAI direto para `Agent` do Pydantic AI, com
+  `output_type=Evidencia`. O fine-tune continua utilizável, configurado como modelo do agente.
+- Injetar `ContextoAvaliacao` — enunciado, resposta, competências, critérios, anti-critérios,
+  bloom do item. Sem histórico longo: o avaliador julga um par pergunta/resposta.
+- Implementar `validar_evidencia`: trecho citado que não existe na resposta zera o score e
+  rebaixa a confiança (P2).
+- Anotar 100 casos; suite `pydantic_evals` em `evals/`.
+
+**Aceite (spec §14):** concordância adjacente acima de **0.85**; taxa de trecho alucinado abaixo de
+**0.05**; `check_verbosity_bias.py` abaixo de **0.4**.
+
+**Antes de escrever o agente:** instalar a skill oficial do Pydantic AI
+(https://pydantic.dev/docs/ai/overview/coding-agent-skills/). A API mudou de forma significativa na
+v2 e o código atual usa a antiga. **Não escrever de memória.**
+
+**Absorve:** `message_validator.py`, via `Evidencia.respondeu_a_pergunta`.
+
+**Auditoria pendente (§6.2, mitigação 4):** vale saber de quem eram as respostas que ensinaram o
+`bloom-evaluator` o que é "analisar". Se o conjunto era homogêneo em escolaridade ou área, o viés
+está nos pesos e nenhum prompt corrige.
+
+---
+
+## Fase 4 — Grafo e persistência
+
+Sem supervisor: a saída é o enunciado cru. O objetivo é provar o circuito, não a conversa.
+
+- Grafo com `pydantic_graph`; apenas `avaliar` e `verbalizar` chamam LLM, o resto é código puro
+- `docs/graph.md` gerado por `graph.render()` e verificado no CI — o diagrama vira teste
+- Tabelas `assessment_states`, `turns`, `evidence_scores` (§9), append-only
+- `SELECT ... FOR UPDATE` na sessão no início do turno
+- `lock_version` para lock otimista
+- `POST /sessions/{id}/reprocess`
+
+**Aceite (spec §14):** sessão completa ponta a ponta; `/reprocess` reproduz o resultado **sem
+chamar LLM**.
+
+`/reprocess` é o teste vivo do P5. Se não existir ou não funcionar, a arquitetura falhou.
+
+`EVIDENCE_SCORES` é a correção definitiva do Pr2: uma linha por critério por turno, com o nível
+observado por competência. O C1 é a versão provisória disso dentro do schema atual.
+
+---
+
+## Fase 5 — Supervisor e streaming
+
+- Supervisor apresenta o `enunciado` fixo. Pode acrescentar no máximo meia frase de ligação;
+  não reescreve, não resume, não combina perguntas (P6).
+- `ponto_forte_anterior` e `lacuna_anterior` chegam ao supervisor — hoje a evidência não chega.
+- Streaming; persistência em paralelo ao stream.
+
+**Aceite (spec §14):** 10 sessões manuais sem repetição de estrutura perceptível; tempo até
+primeiro token abaixo de **1.5s**.
+
+**Remove:** `question_generator.py` e seus prompts (a fusão de perguntas de referência foi a causa
+direta do efeito formulário e viola P6); `helpers/transition_phrases.py` (com `ponto_forte_anterior`
+disponível, frase pronta é desnecessária, e lista finita o usuário detecta rápido).
+
+**Não reescrever o `end_prompt`.** A postura avaliativa neutra já está calibrada. As mudanças são
+de contexto, não de tom.
 
 De 4 chamadas de LLM por turno para 2.
 
-**Aceite:** 10 sessões manuais sem repetição de estrutura perceptível; tempo até primeiro token
-abaixo de 1.5s.
+---
 
-## Onda 7 — Auditoria, LGPD e calibração (spec Fases 6–7)
+## Fase 6 — Auditoria, relatório e revisão humana
 
-- [ ] `GET /admin/sessions/{id}/audit`, `POST /admin/turns/{id}/human-review`
-- [ ] `avaliacao_humana` migra do CSV para `evidence_scores`
-- [ ] Spans OTel e alertas (spec §11)
-- [ ] Após ~200 sessões: `calibrate_difficulty.py`, `validate_bloom_ladder.py`, `check_dif.py`
-- [ ] Migrar `progression.py` para a regra v2.1
+- `GET /admin/sessions/{id}/audit` — turns + evidence_scores completos
+- `POST /admin/turns/{id}/human-review` — grava `avaliacao_humana`
+- `GET /sessions/{id}/report` — relatório final, só quando encerrada
+- Spans OTel (§11) e alertas: confiança baixa acima de 20%, trecho alucinado acima de 5%,
+  encerramento por teto acima de 30%, p95 do avaliador acima de 6s
 
-**Não implementar IRT antes de ter os dados.** Sem ~200 sessões, o modelo é enfeite.
+**Por que isso não é refinamento:** a LGPD dá ao titular direito de revisão de decisão automatizada
+que afete seus interesses. Na prática, exige explicar um resultado individual **item por item, com
+o texto que sustentou cada julgamento**, e ter caminho de revisão humana funcional. O sistema atual
+não consegue: o que sobra de uma sessão é um inteiro por turno. Validar o enquadramento com o
+jurídico da Koru.
+
+`avaliacao_humana` migra do CSV para `evidence_scores`, onde é consultável.
+
+---
+
+## Fase 7 — Calibração
+
+**Só após ~200 sessões reais.** Sem dados, o modelo é enfeite.
+
+- `calibrate_difficulty.py` — reestima `Item.dificuldade` a partir de dados reais
+- `validate_bloom_ladder.py` — taxa média de score por nível deve ser monotônica decrescente
+- `check_dif.py` — funcionamento diferencial de item por grupo; item com DIF significativo sai do banco
+- Migrar `progression.py` para a regra v2.1: concordância dá lugar a erro padrão abaixo de limiar,
+  com modelo 1PL. A interface não muda.
 
 ---
 
 ## Decisões pendentes
 
-Bloqueiam ondas específicas. Não devem ser resolvidas com valor default.
+Não devem ser resolvidas com valor default.
 
-| # | Decisão | Recomendação da spec | Bloqueia |
+| | Decisão | Recomendação da spec | Bloqueia |
 |---|---|---|---|
-| D1 | Granularidade da competência | blocos para navegação, theta por competência individual | Onda 5 |
-| D2 | Orçamento: minutos ou itens | itens | Onda 2 |
-| D3 | Onde fica o corte de evidência suficiente | não decidir por opinião — rodar §12.1 primeiro | Onda 4 |
-
-Uma pergunta adicional, fora da spec: **auditar o dado de treino do fine-tune** (spec §6.2,
-mitigação 4). Se o conjunto que ensinou o `bloom-evaluator` o que é "analisar" era homogêneo em
-escolaridade ou área, o viés está nos pesos e nenhum prompt corrige. Vale saber antes de investir
-na Onda 4.
+| D1 | Granularidade da competência | blocos para navegação, theta por competência individual | Fase 1 |
+| D2 | Orçamento: minutos ou itens | itens — limite de tempo favorece quem digita rápido, variância irrelevante ao construto | Fase 4 |
+| D3 | Onde fica o corte de evidência suficiente | não decidir por opinião: rodar a Fase 0 primeiro | Fase 1 |
 
 ---
 
-## O que este roadmap não faz
+## P7 — Os scripts de verificação
 
-- Não migra sessões v1. Não existe evidência estruturada nem critério nelas, só um `classificacao`
-  de -1 a 1. Ficam somente-leitura, com resultado congelado e marcação explícita de metodologia v1.
-- Não reescreve o `end_prompt` do supervisor.
-- Não gera itens de avaliação automaticamente. O item é o instrumento de medição; conteúdo novo
-  passa por revisão humana.
+Toda propriedade que a spec afirma tem um script que a verifica. Sem o script, a afirmação não vale.
+
+| Script | O que mede | Critério | Fase | Situação |
+|---|---|---|---|---|
+| `check_verbosity_bias.py` | correlação entre score e nº de tokens | > 0.4 é alerta vermelho | pré-fase | ✅ existe, sem medição |
+| `validate_question_bank.py` | cobertura por célula | 3 itens/célula | pré-fase | ✅ existe, banco reprova |
+| `check_agreement_stratified.py` | concordância com humano por estrato | divergência entre estratos indica viés | 3 | ❌ |
+| `check_dif.py` | funcionamento diferencial por grupo | item com DIF sai do banco | 7 | ❌ |
+| `validate_bloom_ladder.py` | score médio por nível de Bloom | monotônico de `lembrar` a `criar` | 7 | ❌ |
+| `calibrate_difficulty.py` | reestima dificuldade | após ~200 sessões | 7 | ❌ |
+| `reprocess_session.py` | recomputa sem LLM | reproduz o resultado | 4 | ❌ |
+
+---
+
+## Trilha paralela — corretude do sistema atual
+
+Fora da spec, porque são defeitos e não desenho. Não dependem de fase nenhuma nem de decisão do
+time, e valem mesmo que a reconstrução seja abandonada. Podem correr em paralelo à Fase 0.
+
+| | Onde | O quê |
+|---|---|---|
+| B5 | `services/session.py:244`, `services/evaluation.py:219` | passam `UUID` para `repository.delete()`, que espera a entidade ORM. `DELETE /sessions/{id}` e `DELETE /evaluations/{id}` estão quebrados. |
+| B6 | `services/session.py:73`, `:255`, `:265` | `has_owned_resource` chamado antes do teste `if not session`: sessão inexistente vira 500 em vez de 404. |
+| B7 | `repository/session.py:52` | `add_message` faz read-modify-write do JSONB sem lock. Duas mensagens simultâneas perdem uma. A Fase 4 resolve de vez com `FOR UPDATE`. |
+| B8 | `models/evaluation.py:38` | `EvaluationOutput.iterations: dict`, mas a coluna e o valor são `list`. |
+| B10 | `main.py:35` | `Base.metadata.create_all` no lifespan, sem Alembic. As tabelas da §9 não têm por onde entrar. **Bloqueia a Fase 4.** |
+| B11 | `skill_evaluator.py:82` | I/O de disco e pandas dentro do caminho async de request, gravando em `artifacts/`, que é efêmero. O C1 já tirou a dependência do dado; falta tirar o I/O. |
+| B16 | `config.py:52` | `openai_api_key` existe em `Settings` mas o avaliador lê `os.getenv` direto. |
+| B17 | `config.py:133`, `database/db.py:8` | `Settings()` e `create_engine()` rodam em tempo de import: importar `app` exige a configuração inteira e abre um engine. Contornado por `tests/conftest.py`. |
+| B18 | `config.py:73`, `:77` | `SecretStr = Field(default=None)`: `SecretStr` não aceita `None`, o default nunca funciona. |
+| B9 | 23 ocorrências | `except Exception` genérico devolvendo mensagem cordial (P8). **Fazer por último:** hoje eles escondem os bugs acima. |
+
+B10 é o único item desta trilha que bloqueia uma fase. Os outros são independentes.
+
+---
+
+## Anti-requisitos (§16)
+
+Valem em toda fase. PR que viole qualquer um deve ser rejeitado.
+
+- **Não** gerar perguntas em runtime, nem como fallback. Célula sem item é erro de configuração e
+  deve falhar alto.
+- **Não** fundir várias perguntas de referência em uma.
+- **Não** dar ferramentas ao avaliador. Ele lê e classifica.
+- **Não** passar o histórico completo ao avaliador.
+- **Não** usar agente orquestrador que decide qual sub-agente chamar. O fluxo é fixo.
+- **Não** persistir mensagens como fonte de estado.
+- **Não** expor score, nível ou competência ao candidato durante a sessão.
+- **Não** implementar IRT antes de ter dados para calibrar.
+- **Não** reescrever o `end_prompt` do supervisor.
+
+## Migração do v1 (§17)
+
+Sessões antigas **não são migráveis**. Não existe evidência estruturada nem critério, apenas um
+`classificacao` de -1 a 1 derivado de rubricas que eram listas de perguntas. Ficam somente-leitura,
+com resultado congelado e marcação explícita de que foram avaliadas pela metodologia v1.
+Não tentar recomputar.

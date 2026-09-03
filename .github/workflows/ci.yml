@@ -28,7 +28,7 @@ jobs:
         run: pdm run test
 
       # P7 (spec §2): nada é medido sem ser medível.
-      # O banco de perguntas ainda está incompleto (ver Onda 2 do docs/ROADMAP.md), então
+      # O banco de perguntas ainda está incompleto (ver C6 e a Fase 2 do docs/ROADMAP.md), então
       # o resultado é informativo e não trava o merge — mas fica visível em todo build.
       - name: Cobertura do banco de perguntas (informativo)
         run: pdm run check-bank || true
