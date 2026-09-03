@@ -1,6 +1,5 @@
-from sqlalchemy import update, func, text
 from sqlalchemy.orm import Session as DBSession
-from app.models.session import Session, SessionInput, SessionMessageInput
+from app.models.session import Session, SessionMessageInput
 from uuid import UUID, uuid4
 from datetime import datetime
 from typing import List, Optional

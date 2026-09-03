@@ -2,7 +2,7 @@
 Cliente Helicone para configurar proxy e processar métricas.
 """
 from typing import Optional, Dict, Any
-from uuid import uuid4, UUID
+from uuid import uuid4
 from datetime import datetime
 
 from app.logger import get_log

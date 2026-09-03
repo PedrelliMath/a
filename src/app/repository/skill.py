@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.models.skill import Skill, SkillInput, SkillOutput
+from app.models.skill import Skill, SkillInput
 from uuid import UUID
 from datetime import datetime
 from typing import List, Optional

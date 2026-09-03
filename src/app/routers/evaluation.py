@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.orm import Session as DBSession
-from app.models.evaluation import EvaluationOutput
 from app.services.evaluation import EvaluationService, get_evaluation_service
 from app.repository.evaluation import get_evaluation_repository
 from app.repository.session import get_session_repository

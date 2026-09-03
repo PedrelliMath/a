@@ -13,3 +13,30 @@ license = {text = "MIT"}
 
 [tool.pdm]
 distribution = false
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.7",
+]
+
+[tool.pdm.scripts]
+test = "pytest"
+lint = "ruff check src scripts tests"
+format = "ruff format src scripts tests"
+check-bank = "python scripts/validate_question_bank.py"
+check-bias = "python scripts/check_verbosity_bias.py"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# `src/` carrega a base v1 que a reconstrução v2 vai substituir (ver docs/ROADMAP.md).
+# O lint entra progressivamente: por ora trava o que é erro real, não estilo.
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82", "F401", "F841"]

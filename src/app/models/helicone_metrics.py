@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, Integer, Boolean, func
+from sqlalchemy import String, Float, Integer, Boolean, func
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, ARRAY, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database.db import Base

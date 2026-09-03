@@ -1,8 +1,7 @@
 from typing import Dict, Optional
 import os
 import requests
-from dotenv import load_dotenv
-from fastapi import Depends, HTTPException, Request, Security
+from fastapi import HTTPException, Request, Security
 from fastapi.security import OAuth2AuthorizationCodeBearer
 from jose import jwt, JWTError
 from app.config import settings

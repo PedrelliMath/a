@@ -1,12 +1,10 @@
-from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Column, DateTime, ForeignKey, String, text, func
+from pydantic import BaseModel, Field
+from sqlalchemy import ForeignKey, String, text, func
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.database.db import Base
 from uuid import uuid4, UUID
 from datetime import datetime
-from typing import List
-import json
 
 from typing import TYPE_CHECKING
 

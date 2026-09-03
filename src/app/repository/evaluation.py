@@ -1,9 +1,8 @@
 from sqlalchemy.orm import Session
-from app.models.evaluation import Evaluation, EvaluationInput, EvaluationOutput
+from app.models.evaluation import Evaluation
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
-import json
 
 from app.models.session import Session
 

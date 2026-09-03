@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          python-version: "3.12"
+          cache: true
+
+      - name: Instalar dependências
+        run: pdm install --dev
+
+      - name: Lint
+        run: pdm run lint
+
+      - name: Testes
+        run: pdm run test
+
+      # P7 (spec §2): nada é medido sem ser medível.
+      # O banco de perguntas ainda está incompleto (ver Onda 2 do docs/ROADMAP.md), então
+      # o resultado é informativo e não trava o merge — mas fica visível em todo build.
+      - name: Cobertura do banco de perguntas (informativo)
+        run: pdm run check-bank || true

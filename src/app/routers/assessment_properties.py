@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session as DBSession
-from app.models.assessment_properties import AssessmentPropertiesInput, AssessmentPropertiesOutput
+from app.models.assessment_properties import AssessmentPropertiesInput
 from app.services.assessment_properties import AssessmentPropertiesService, get_assessment_properties_service
 from app.repository.assessment_properties import get_assessment_properties_repository
 from app.database.db import get_db
