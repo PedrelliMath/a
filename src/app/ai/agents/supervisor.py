@@ -43,6 +43,7 @@ class AgentSupervisor:
     async def run_retype(self, retype_context: dict):
         final_prompt = self.retype_prompt.format(
             message_history=retype_context["message_history"],
+            regenerated_question=retype_context["regenerated_question"],
         )
         return await self.runner.run(user_prompt=final_prompt)
 

@@ -156,11 +156,19 @@ def track_helicone(
                     f"Model: {model}, Latency: {latency_ms:.2f}ms, "
                     f"Tokens: {usage.get('prompt_tokens', '?')}/{usage.get('completion_tokens', '?')}"
                 )
-                
+
+                # A exceção era capturada em `error` e nunca usada: chamadas que falharam
+                # ficavam indistinguíveis das que deram certo na observabilidade.
+                if error is not None:
+                    logger.warning(
+                        f"Helicone tracking - Agent: {agent_type} falhou após "
+                        f"{latency_ms:.2f}ms: {type(error).__name__}: {error}"
+                    )
+
                 # Salvar métricas no banco (de forma não-bloqueante)
                 if save_metrics:
                     _save_metrics_async(metrics_data)
-        
+
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs) -> Any:
             # Versão síncrona (menos comum para agentes de IA)

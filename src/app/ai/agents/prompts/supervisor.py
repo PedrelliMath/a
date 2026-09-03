@@ -29,9 +29,12 @@ greeting_prompt = """
 
 retype_prompt = """
     Histórico da Conversa: {message_history}
-    O usuário não respondeu conforme solicitado.  
-    Seja respeitoso e gentil, orientando-o a reformular a resposta.  
+    O usuário não respondeu conforme solicitado.
+    Seja respeitoso e gentil, orientando-o a reformular a resposta.
     Use o histórico da conversa como apoio para contextualizar e guiá-lo.
+    A pergunta foi reformulada para: '{regenerated_question}'
+    Apresente essa pergunta reformulada ao usuário. Não reescreva a pergunta,
+    não a resuma e não a combine com outra.
 """
 
 end_prompt = """

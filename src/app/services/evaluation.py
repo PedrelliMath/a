@@ -1,10 +1,9 @@
 from fastapi import HTTPException, status
-from app.models.evaluation import EvaluationInput, EvaluationOutput
+from app.models.evaluation import EvaluationOutput
 from app.repository.evaluation import EvaluationRepository
 from app.repository.session import SessionRepository
 from app.repository.skill import SkillRepository
 from uuid import UUID
-from typing import Optional
 from app.models.current_user import CurrentUser
 from app.models.session import Session
 
@@ -41,7 +40,10 @@ class EvaluationService:
                 return
 
             is_skip = bot_params.get("flow", {}).get("type") == "skip"
-            achieved = bot_params.get("skill_evaluator", {}).get("achieved_level")
+            evaluator = bot_params.get("skill_evaluator", {})
+            achieved = evaluator.get("achieved_level")
+            # C1 (spec §15): nível observado por competência individual, preservado por turno.
+            skill_analysis = evaluator.get("skill_analysis") or []
 
             if is_skip:
                 iterations.append({
@@ -50,6 +52,7 @@ class EvaluationService:
                     "expected_bloom_level": pending_question["expected_bloom_level"],
                     "achieved_bloom_level": None,
                     "macro": pending_question["macro"],
+                    "skill_analysis": [],
                     "skipped": True,
                 })
             elif pending_responses:
@@ -59,6 +62,7 @@ class EvaluationService:
                     "expected_bloom_level": pending_question["expected_bloom_level"],
                     "achieved_bloom_level": achieved,
                     "macro": pending_question["macro"],
+                    "skill_analysis": skill_analysis,
                     "skipped": False,
                 })
 

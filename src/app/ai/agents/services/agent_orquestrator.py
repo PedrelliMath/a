@@ -1,6 +1,8 @@
 from typing import Optional
 from pydantic_ai import Agent
+import hashlib
 import os
+import random
 
 from app.ai.agents.message_validator import (
     AgentMessageValidator,
@@ -19,7 +21,6 @@ from app.ai.agents.question_generator import (
 )
 from app.ai.agents.skill_evaluator import (
     AgentSkillEvaluator,
-    AgentSkillEvaluatorResponse,
 )
 from app.ai.agents.supervisor import AgentSupervisor, AgentSupervisorResponse
 from app.ai.agents.schemas.chat import ChatContextIn, ChatContextOut, ChatContextRunning
@@ -30,6 +31,25 @@ from app.observability import HeliconeContext
 from app.config import settings
 
 logger = get_log(__name__)
+
+
+def ordenar_blocos(blocos: list[str], sessao_id: str) -> list[str]:
+    """Ordena os blocos de forma pseudoaleatória, mas determinística por sessão.
+
+    C7 (spec §15 e §6.1): hoje todo candidato começa em `available_skills[0]`, então o
+    primeiro bloco da lista é sistematicamente penalizado pelo efeito de primeira resposta —
+    a pessoa ainda está calibrando o formato esperado quando responde.
+
+    A seed vem do `sessao_id`, então a ordem é reproduzível: reprocessar a mesma sessão
+    devolve a mesma sequência, sem depender de estado externo (P5).
+    """
+    if not blocos:
+        return []
+
+    ordenados = list(blocos)
+    seed = int(hashlib.sha256(str(sessao_id).encode("utf-8")).hexdigest(), 16)
+    random.Random(seed).shuffle(ordenados)
+    return ordenados
 
 
 def get_proficiency_level(current_level: str, classification: int) -> str:
@@ -274,6 +294,10 @@ class AgentOrquestrator:
             bloom_levels=bloom_levels,
         )
 
+    def _blocos_ordenados(self, rubrics: dict) -> list[str]:
+        """Ordem dos blocos desta sessão. Determinística, derivada do id da sessão."""
+        return ordenar_blocos(list(rubrics.keys()), str(self.session.id))
+
     def _get_question_set(
         self,
         proficiency_level: str,
@@ -292,7 +316,7 @@ class AgentOrquestrator:
         return questions
 
     def _get_current_state(self, message_history: list, rubrics: dict) -> tuple[str, str]:
-        available_skills = list(rubrics.keys())
+        available_skills = self._blocos_ordenados(rubrics)
         default_skill = available_skills[0] if available_skills else ""
         default_proficiency = "analisar"
 
@@ -371,7 +395,7 @@ class AgentOrquestrator:
 
         greeting_context = {
             "skill_name": self.context_in.session.skill.name,
-            "subjects": list(self.context_in.rubrics.keys()),
+            "subjects": self._blocos_ordenados(self.context_in.rubrics),
             "user_name": self.user_name,
             "first_question": new_question,
         }
@@ -449,7 +473,7 @@ class AgentOrquestrator:
         )
 
         if count_messages >= 2:
-            specific_skill_list = list(self.context_in.rubrics.keys())
+            specific_skill_list = self._blocos_ordenados(self.context_in.rubrics)
             try:
                 idx = specific_skill_list.index(current_skill)
                 next_idx = idx + 1
@@ -550,60 +574,6 @@ class AgentOrquestrator:
                 },
             }
         ]
-
-    async def _generate_supervisor_response(
-        self, new_question: str, flow_type: str = "normal"
-    ) -> str:
-        """Gera a resposta do supervisor para retornar ao usuário"""
-        if flow_type == "followup":
-            flow_context = (
-                "### Contexto do Fluxo\n"
-                "A resposta anterior do usuário estava INCOMPLETA.\n"
-                "NÃO resuma nem repita o que o usuário disse.\n"
-                "Vá direto ao ponto: sinalize brevemente (em meia frase) que a resposta "
-                "precisava de mais profundidade, e então faça a nova pergunta.\n"
-            )
-        else:
-            levels = ["lembrar", "compreender", "aplicar", "analisar", "avaliar", "criar"]
-            current_idx = levels.index(current_level.lower()) if current_level.lower() in levels else -1
-
-            alt_question_set = []
-            for delta in [1, -1]:
-                alt_idx = current_idx + delta
-                if 0 <= alt_idx < len(levels):
-                    candidate = self._get_question_set(
-                        levels[alt_idx], current_skill, rubrics=self.context_in.rubrics
-                    )
-                    if candidate:
-                        alt_question_set = candidate
-                        logger.info(
-                            f"Skip: usando perguntas do nível {levels[alt_idx]} "
-                            f"para evitar repetição (proficiency mantido: {current_level})"
-                        )
-                        break
-
-            self.current_question_set = alt_question_set or self._get_question_set(
-                current_level, current_skill, rubrics=self.context_in.rubrics
-            )
-
-            self.agents_params["progress_tracker"] = {
-                "should_continue": True,
-                "previous_skill": current_skill,
-                "new_skill": current_skill,
-                "changed_skill": False,
-            }
-
-        new_question = await self._generate_question()
-        supervisor_message = await self._generate_supervisor_response(new_question)
-
-        self.agents_params["flow"] = {"type": "skip"}
-        self.agents_params["new_proficiency_level"] = self.context_running.new_proficiency_level
-        self.agents_params["new_specific_skill"] = self.context_running.new_specific_skill
-
-        return ChatContextOut(
-            supervisor_message=supervisor_message,
-            params=self.agents_params,
-        )
 
     async def _generate_supervisor_response(self, new_question: str) -> str:
         end_context = {
@@ -718,6 +688,7 @@ class AgentOrquestrator:
         adequacao_habilidades = result.output.adequacao_habilidades
         adequacao_macro = result.output.adequacao_macro
         justificativas_habilidades = result.output.justificativas_habilidades
+        skill_analysis = [item.model_dump() for item in result.output.skill_analysis]
         current_level = self.context_running.new_proficiency_level
 
         new_level = (
@@ -728,6 +699,9 @@ class AgentOrquestrator:
 
         self.context_running.new_proficiency_level = new_level
 
+        # C1 (spec §15): skill_analysis carrega o nível observado por competência individual.
+        # Sem ele, sobra apenas `classification`, um int, e o dado por competência é perdido
+        # para sempre em toda sessão de todo candidato.
         self.agents_params["skill_evaluator"] = {
             "classification": classificacao,
             "adequacao_habilidades": adequacao_habilidades,
@@ -735,6 +709,7 @@ class AgentOrquestrator:
             "adequacao_macro": adequacao_macro,
             "expected_level": current_level,
             "achieved_level": new_level,
+            "skill_analysis": skill_analysis,
         }
 
         logger.info(
@@ -806,7 +781,7 @@ class AgentOrquestrator:
         should_change_skill = count_messages >= 2
 
         if should_change_skill:
-            specific_skill_list = list(self.context_in.rubrics.keys())
+            specific_skill_list = self._blocos_ordenados(self.context_in.rubrics)
 
             try:
                 specific_skill_idx = specific_skill_list.index(current_skill)

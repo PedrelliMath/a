@@ -21,6 +21,20 @@ logger = get_log(__name__)
 OBSERVABILITY_DIR = os.getenv("SKILL_EVALUATOR_OBSERVABILITY_DIR", "artifacts/observability")
 
 
+class SkillAnalysisItem(BaseModel):
+    """Nível de Bloom observado para uma competência individual, em um turno.
+
+    C1 (spec §15): este é o dado que o avaliador já produzia e que era descartado.
+    A votação por maioria colapsa tudo isto em um int de -1 a 1; aqui o detalhe é preservado
+    para persistir em `evaluations.iterations` e permitir reprocessamento sem LLM (P5).
+    """
+    skill: str
+    expected_bloom_level: str | None = None
+    achieved_bloom_level: str | None = None
+    adequacao: int = Field(default=0, ge=-1, le=1)
+    status: str = ""
+
+
 class AgentSkillEvaluatorResponse(BaseModel):
     """Response model for skill evaluator"""
     classificacao: int = Field(description="intervalo", ge=-1, le=1)
@@ -29,6 +43,10 @@ class AgentSkillEvaluatorResponse(BaseModel):
     justificativas_habilidades: str = Field(
         default="",
         description="justificativas concatenadas por habilidade",
+    )
+    skill_analysis: list[SkillAnalysisItem] = Field(
+        default_factory=list,
+        description="nível observado por competência individual, preservado por turno",
     )
 
 
@@ -361,8 +379,11 @@ class AgentSkillEvaluator:
 
         individual_skills = parse_skill_group(current_skill_group)
 
+        # C2 (spec §15): o enunciado passa a integrar o payload de classificação.
+        # Sem ele o avaliador julga a resposta no vácuo e resposta fora do tópico pontua alto.
         dados_classificacao = {
             "habilidades_macro": individual_skills,
+            "pergunta": question,
         }
 
         logger.info("📋 Dados de classificação:")
@@ -500,6 +521,7 @@ class AgentSkillEvaluator:
             adequacao_habilidades=adequacao_habilidades,
             adequacao_macro=adequacao_macro,
             justificativas_habilidades=justificativas_habilidades,
+            skill_analysis=[SkillAnalysisItem(**item) for item in skill_analysis],
         ), audit_payload)
 
     async def _generate_skill_justifications(
@@ -551,14 +573,6 @@ class AgentSkillEvaluator:
         except Exception as exc:
             logger.warning(f"Falha ao gerar justificativas por habilidade: {exc}")
             return {}
-
-        return Output(
-            AgentSkillEvaluatorResponse(
-                classificacao=classificacao,
-                adequacao_habilidades=adequacao_habilidades,
-                adequacao_macro=adequacao_macro,
-            )
-        )
 
     async def _executar_inferencia(
         self,
