@@ -93,6 +93,8 @@ class AgentOrquestrator:
         self.user_message: str | None = None
         # Histórico do supervisor em ModelMessage, devolvido para persistência.
         self.supervisor_messages: list | None = None
+        # Histórico que foi entregue ao supervisor nesta run, antes do corte.
+        self.supervisor_input_history: list = []
         # FIX #9: agents_params resetado por chamada em get_response, não só no __init__
         self.agents_params = {"prompt_version": PROMPT_VERSION}
         self.user_name = user_name or session.user_id
@@ -184,6 +186,7 @@ class AgentOrquestrator:
         # FIX #9: resetar agents_params a cada chamada para evitar contaminação entre requests
         self.agents_params = {"prompt_version": PROMPT_VERSION}
         self.supervisor_messages = None
+        self.supervisor_input_history = []
         self.user_message = user_message
 
         with HeliconeContext(
@@ -556,20 +559,24 @@ class AgentOrquestrator:
 
     def _supervisor_context(self, **extra) -> dict:
         """Contexto comum a todas as chamadas do supervisor."""
+        self.supervisor_input_history = self.context_in.supervisor_history(
+            self.user_message
+        )
         context = {
             "deps": self._supervisor_deps(),
-            "message_history": self.context_in.supervisor_history(self.user_message),
+            "message_history": self.supervisor_input_history,
         }
         context.update(extra)
         return context
 
     def _record_supervisor_history(self, result) -> None:
         """
-        Guarda o histórico completo da run para persistência (R9).
+        Guarda o histórico da run para persistência (R9).
 
-        `all_messages()` devolve o histórico recebido mais as mensagens desta
-        run — o corte do ProcessHistory vale só para o que foi enviado ao
-        modelo, não para o que é gravado.
+        `all_messages()` não serve aqui: ele devolve o histórico DEPOIS do
+        corte do ProcessHistory, então gravá-lo trunca a memória da sessão a
+        cada turno. O que se grava é o histórico que entrou na run, inteiro,
+        mais as mensagens novas desta run.
         """
         conversation_id = getattr(result, "conversation_id", None)
         if conversation_id:
@@ -578,7 +585,9 @@ class AgentOrquestrator:
             self.agents_params["conversation_id"] = str(conversation_id)
 
         try:
-            self.supervisor_messages = to_jsonable_python(result.all_messages())
+            self.supervisor_messages = to_jsonable_python(
+                list(self.supervisor_input_history) + list(result.new_messages())
+            )
         except Exception as exc:
             logger.warning(f"Não foi possível serializar o histórico do supervisor: {exc}")
             self.supervisor_messages = None
@@ -619,13 +628,9 @@ class AgentOrquestrator:
             if not current_topic or current_topic in anchors:
                 continue
 
-            text = (msg.get("text") or "").strip()
-            if len(text) < MIN_ANCHOR_LENGTH:
+            sentence = self._first_sentence(msg.get("text"))
+            if not sentence:
                 continue
-
-            sentence = re.split(r"(?<=[.!?])\s", text)[0].strip()
-            if len(sentence) > MAX_ANCHOR_LENGTH:
-                sentence = sentence[: MAX_ANCHOR_LENGTH - 3].rstrip() + "..."
 
             anchors[current_topic] = sentence
 
@@ -633,49 +638,63 @@ class AgentOrquestrator:
 
     def _extract_previous_strength(self) -> str | None:
         """
-        Extrai um ponto concreto coberto pela resposta anterior, a partir das
-        justificativas do avaliador.
+        Ponto concreto coberto pela resposta anterior, nas palavras do candidato.
 
-        `justificativas_habilidades` vem no formato
-        "{habilidade:nivel, justificativa:texto}; {...}" e
-        `adequacao_habilidades` no formato "habilidade:adequacao, ...".
-        Escolhe a justificativa da habilidade mais bem pontuada e devolve a
-        primeira frase dela.
+        A justificativa do avaliador não serve como fonte: por prompt ela
+        começa com "Você atingiu o nível de bloom X", e o supervisor tem regra
+        de nunca mencionar níveis. O trecho sai do texto do candidato, o mesmo
+        material das âncoras.
+
+        Só há o que reconhecer quando a resposta foi avaliada e cobriu algum
+        critério: nos caminhos sem avaliação (retype, desvio, skip) e quando
+        todos os critérios ficaram inadequados, devolve None.
         """
-        evaluator = self.agents_params.get("skill_evaluator") or {}
-        justifications = evaluator.get("justificativas_habilidades") or ""
-        if not justifications:
+        evaluator = self.agents_params.get("skill_evaluator")
+        if not evaluator:
             return None
 
-        scores: dict[str, int] = {}
-        for pair in (evaluator.get("adequacao_habilidades") or "").split(","):
-            skill, _, value = pair.partition(":")
+        scores = [
+            value
+            for _, value in self._parse_adequacy(
+                evaluator.get("adequacao_habilidades")
+            )
+        ]
+        if scores and max(scores) < 0:
+            return None
+
+        answer = self.user_message or self.context_in.user_response
+        strength = self._first_sentence(answer)
+
+        if strength:
+            logger.info(f"Ponto forte anterior: {strength}")
+
+        return strength
+
+    @staticmethod
+    def _parse_adequacy(adequacao: str | None) -> list[tuple[str, int]]:
+        """Lê "habilidade:adequacao, ..." como pares (habilidade, nota)."""
+        pairs: list[tuple[str, int]] = []
+        for item in (adequacao or "").split(","):
+            skill, _, value = item.partition(":")
             try:
-                scores[skill.strip()] = int(value.strip())
+                pairs.append((skill.strip(), int(value.strip())))
             except ValueError:
                 continue
 
-        entries: list[tuple[str, str]] = []
-        for block in re.findall(r"\{(.*?)\}", justifications, flags=re.DOTALL):
-            skill, _, rest = block.partition(":")
-            _, _, justification = rest.partition("justificativa:")
-            skill = skill.strip()
-            justification = justification.strip()
-            if skill and justification and justification != "Sem justificativa disponível.":
-                entries.append((skill, justification))
+        return pairs
 
-        if not entries:
+    @staticmethod
+    def _first_sentence(text: str | None) -> str | None:
+        """Primeira frase de um texto do candidato, truncada e sem ruído."""
+        text = (text or "").strip()
+        if len(text) < MIN_ANCHOR_LENGTH:
             return None
 
-        skill, justification = max(entries, key=lambda item: scores.get(item[0], 0))
+        sentence = re.split(r"(?<=[.!?])\s", text)[0].strip()
+        if len(sentence) > MAX_ANCHOR_LENGTH:
+            sentence = sentence[: MAX_ANCHOR_LENGTH - 3].rstrip() + "..."
 
-        first_sentence = re.split(r"(?<=[.!?])\s", justification.strip())[0].strip()
-        if len(first_sentence) > 220:
-            first_sentence = first_sentence[:217].rstrip() + "..."
-
-        logger.info(f"Ponto forte anterior ({skill}): {first_sentence}")
-
-        return first_sentence or None
+        return sentence or None
 
     async def _generate_supervisor_response(self, new_question: str) -> str:
         turn_context = self._supervisor_context(

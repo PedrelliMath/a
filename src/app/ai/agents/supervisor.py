@@ -155,9 +155,9 @@ def _reconhecimento(ctx: RunContext[SupervisorDeps]) -> str:
         return ""
     ponto = ctx.deps.ponto_forte_anterior.strip().rstrip(".")
     return (
-        f"Ponto coberto pela resposta anterior: {ponto}. "
+        f'Trecho da resposta anterior do candidato: "{ponto}". '
         "Reconheça em no máximo meia frase, de forma factual, antes da pergunta. "
-        "Nomear o que foi coberto, não elogiar. Nunca resumir a resposta."
+        "Nomear o que foi dito, não elogiar. Nunca resumir a resposta."
     )
 
 
