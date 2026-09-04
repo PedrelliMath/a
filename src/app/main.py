@@ -12,7 +12,7 @@ from pathlib import Path
 from app.routers import skill, session, evaluation, assessment_properties
 
 from app.config import settings
-from app.database.db import engine, Base
+from app.database.db import engine, Base, apply_additive_columns
 from app.openapi_keycloak import init_custom_open_api
 
 from app.logger import get_log
@@ -32,6 +32,7 @@ async def lifespan(app: FastAPI):
     try:
         logger.info("Criando tabelas no banco de dados...")
         Base.metadata.create_all(bind=engine)
+        apply_additive_columns()
         logger.info("Tabelas criadas com sucesso!")
     except Exception as e:
         logger.error(f"Erro ao criar tabelas: {str(e)}")

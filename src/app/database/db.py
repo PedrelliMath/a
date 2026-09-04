@@ -38,3 +38,20 @@ def get_db():
         raise
     finally:
         db.close()
+
+
+# Colunas adicionadas depois que a tabela já existia em produção. O projeto
+# não usa migrations e `create_all` só cria tabelas novas, então elas são
+# aplicadas aqui, de forma idempotente, no start da aplicação.
+ADDITIVE_COLUMNS: list[str] = [
+    "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS model_messages JSONB "
+    "NOT NULL DEFAULT '[]'::jsonb",
+]
+
+
+def apply_additive_columns() -> None:
+    """Aplica as colunas aditivas pendentes. Não remove nem altera nada."""
+    with engine.begin() as connection:
+        for statement in ADDITIVE_COLUMNS:
+            logger.info(f"Aplicando coluna aditiva: {statement}")
+            connection.execute(text(statement))

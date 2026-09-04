@@ -67,6 +67,17 @@ class SessionRepository:
         self.db.refresh(session)
         return message
 
+    def update_model_messages(self, session: Session, model_messages: list) -> None:
+        """
+        Grava o histórico do supervisor serializado (ModelMessage).
+
+        Coexiste com `messages`: nada aqui altera o transcript nem os params
+        de onde o estado da avaliação é reconstruído.
+        """
+        session.model_messages = model_messages or []
+        self.db.commit()
+        self.db.refresh(session)
+
     def delete(self, session: Session) -> bool:
         self.db.delete(session)
         self.db.commit()

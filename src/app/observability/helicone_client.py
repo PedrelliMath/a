@@ -206,11 +206,17 @@ class HeliconeClient:
             if hasattr(result, 'usage') and callable(result.usage):
                 usage_obj = result.usage()
                 
-                # pydantic-ai usa request_tokens e response_tokens
-                if hasattr(usage_obj, 'request_tokens'):
-                    usage_dict["prompt_tokens"] = usage_obj.request_tokens
-                if hasattr(usage_obj, 'response_tokens'):
-                    usage_dict["completion_tokens"] = usage_obj.response_tokens
+                # pydantic-ai 2.x usa input_tokens/output_tokens; os nomes
+                # antigos (request_tokens/response_tokens) ficam como fallback
+                # para não perder métrica caso a versão mude.
+                for attr in ("input_tokens", "request_tokens"):
+                    if getattr(usage_obj, attr, None) is not None:
+                        usage_dict["prompt_tokens"] = getattr(usage_obj, attr)
+                        break
+                for attr in ("output_tokens", "response_tokens"):
+                    if getattr(usage_obj, attr, None) is not None:
+                        usage_dict["completion_tokens"] = getattr(usage_obj, attr)
+                        break
                 
                 logger.debug(
                     f"Usage extraído: prompt={usage_dict['prompt_tokens']}, "

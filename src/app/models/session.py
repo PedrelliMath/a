@@ -67,6 +67,15 @@ class Session(Base):
         server_default=text("'[]'::jsonb"),
         nullable=False
     )
+    # Histórico da conversa do supervisor serializado como ModelMessage do
+    # pydantic-ai. Coexiste com `messages`, que continua sendo a fonte do
+    # estado (params) e do transcript exibido ao usuário.
+    model_messages: Mapped[list] = mapped_column(
+        JSONB,
+        server_default=text("'[]'::jsonb"),
+        nullable=False,
+        default=list
+    )
     expiration_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=True
@@ -94,6 +103,7 @@ class Session(Base):
         }
         if include_messages:
             session_dict.update({
-                "messages": self.messages
+                "messages": self.messages,
+                "model_messages": self.model_messages or []
             })
         return session_dict

@@ -7,6 +7,9 @@ Regra de organização deste arquivo:
   vale em todos os caminhos de chamada.
 - Os demais prompts carregam apenas o que é específico do momento e são
   usados como user prompt do turno.
+
+O histórico da conversa NÃO entra nestes prompts: ele é passado ao agente
+como `message_history` (lista de `ModelMessage`), com papéis de verdade.
 """
 
 system_prompt = """
@@ -54,7 +57,6 @@ Exceção ao formato: nesta abertura você pode usar até 4 frases.
 """
 
 turn_prompt = """
-Histórico: {message_history}
 Tópico atual: {current_subject}
 Próxima pergunta: '{generated_question}'
 
@@ -62,7 +64,6 @@ Apresente a pergunta. Contextualize apenas se ela não fizer sentido sozinha.
 """
 
 off_topic_prompt = """
-Histórico: {message_history}
 Pergunta pendente: '{generated_question}'
 Desvios consecutivos: {deviation_count}
 
@@ -73,7 +74,6 @@ de forma direta.
 """
 
 retype_prompt = """
-Últimas mensagens: {message_history}
 Pergunta reformulada: '{regenerated_question}'
 
 O candidato não respondeu ao que foi pedido. Peça a reformulação de

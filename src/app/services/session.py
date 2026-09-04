@@ -184,6 +184,12 @@ class SessionService:
                 )
             )
 
+            if response.model_messages is not None:
+                self.session_repository.update_model_messages(
+                    session=session,
+                    model_messages=response.model_messages,
+                )
+
             return [SessionMessageOutput(**m) for m in saved_messages]
             
         except HTTPException:
@@ -220,7 +226,13 @@ class SessionService:
                 user_type="bot",
                 params=response.params
             )
-            
+
+            if response.model_messages is not None:
+                self.session_repository.update_model_messages(
+                    session=session,
+                    model_messages=response.model_messages,
+                )
+
         except HTTPException:
             raise
         except Exception as e:
