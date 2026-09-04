@@ -1,11 +1,8 @@
 from typing import Optional
-from pydantic_ai import Agent
 import os
+import re
 
-from app.ai.agents.message_validator import (
-    AgentMessageValidator,
-    AgentMessageValidatorResponse,
-)
+from app.ai.agents.message_validator import AgentMessageValidator
 
 from app.ai.agents.prompts import (
     message_validator,
@@ -13,23 +10,27 @@ from app.ai.agents.prompts import (
     skill_evaluator,
     supervisor,
 )
-from app.ai.agents.question_generator import (
-    AgentQuestionGenerator,
-    AgentQuestionGeneratorResponse,
-)
-from app.ai.agents.skill_evaluator import (
-    AgentSkillEvaluator,
-    AgentSkillEvaluatorResponse,
-)
-from app.ai.agents.supervisor import AgentSupervisor, AgentSupervisorResponse
+from app.ai.agents.question_generator import AgentQuestionGenerator
+from app.ai.agents.skill_evaluator import AgentSkillEvaluator
+from app.ai.agents.supervisor import AgentSupervisor, SupervisorDeps
 from app.ai.agents.schemas.chat import ChatContextIn, ChatContextOut, ChatContextRunning
-from app.ai.agents.helpers.transition_phrases import pick_transition_phrase
 from app.models.session import Session
 from app.logger import get_log
 from app.observability import HeliconeContext
 from app.config import settings
 
 logger = get_log(__name__)
+
+# Versão dos prompts, registrada em params para observabilidade.
+PROMPT_VERSION = "v3-supervisor-refactor"
+
+# Janelas de histórico por caminho de chamada (R2).
+# O turno normal é o que mais precisa de continuidade; fechamento e saudação
+# não precisam de conversa nenhuma.
+HISTORY_WINDOW_TURN = 8
+HISTORY_WINDOW_OFF_TOPIC = 4
+HISTORY_WINDOW_RETYPE = 2
+HISTORY_WINDOW_VALIDATION = 6
 
 
 def get_proficiency_level(current_level: str, classification: int) -> str:
@@ -81,7 +82,7 @@ class AgentOrquestrator:
         self.context_in = None
         self.context_running = None
         # FIX #9: agents_params resetado por chamada em get_response, não só no __init__
-        self.agents_params = {"prompt_version": "v2-neutral"}
+        self.agents_params = {"prompt_version": PROMPT_VERSION}
         self.user_name = user_name or session.user_id
 
         self.agent_supervisor = None
@@ -114,22 +115,17 @@ class AgentOrquestrator:
             return f"openai:{model_name}"
 
         self.agent_supervisor = AgentSupervisor(
-            runner=Agent(
-                model=create_model("supervisor"),
-                output_type=AgentSupervisorResponse,
-            ),
+            model=create_model("supervisor"),
             system_prompt=supervisor.system_prompt,
             retype_prompt=supervisor.retype_prompt,
             close_prompt=supervisor.close_prompt,
-            message_prompt=supervisor.end_prompt,
+            turn_prompt=supervisor.turn_prompt,
             greeting_prompt=supervisor.greeting_prompt,
+            off_topic_prompt=supervisor.off_topic_prompt,
         )
 
         self.agent_message_validator = AgentMessageValidator(
-            runner=Agent(
-                model=create_model("message_validator"),
-                output_type=AgentMessageValidatorResponse,
-            ),
+            model=create_model("message_validator"),
             system_prompt=message_validator.system_prompt,
             validation_prompt=message_validator.validation_prompt,
         )
@@ -158,10 +154,7 @@ class AgentOrquestrator:
         logger.info(f"SkillEvaluator initialized with model: {model_id}")
 
         self.agent_question_generator = AgentQuestionGenerator(
-            runner=Agent(
-                model=create_model("question_generator"),
-                output_type=AgentQuestionGeneratorResponse,
-            ),
+            model=create_model("question_generator"),
             generation_prompt=question_generator.user_prompt_generation,
             regeneration_prompt=question_generator.user_prompt_regeneration,
         )
@@ -177,7 +170,7 @@ class AgentOrquestrator:
             ChatContextOut com supervisor_message e params
         """
         # FIX #9: resetar agents_params a cada chamada para evitar contaminação entre requests
-        self.agents_params = {}
+        self.agents_params = {"prompt_version": PROMPT_VERSION}
 
         with HeliconeContext(
             session_id=str(self.session.id),
@@ -396,14 +389,17 @@ class AgentOrquestrator:
         validation = await self._validate_message(user_message)
 
         # FIX #4: comparar com os valores corretos do schema ("invalid" / "incomplete")
+        if validation.reason == "skip":
+            return await self._handle_skip()
+
+        if validation.reason != "valid" and validation.is_off_topic:
+            return await self._handle_off_topic()
+
         if validation.reason == "invalid":
-            return await self._handle_invalid_message(validation)
+            return await self._handle_invalid_message()
 
         if validation.reason == "incomplete":
             return await self._handle_incomplete_message(validation)
-        
-        if validation.reason == "skip":
-            return await self._handle_skip()
 
         # PASSO 2: Avaliar resposta
         logger.info("PASSO 2: Avaliando resposta do usuário")
@@ -428,12 +424,9 @@ class AgentOrquestrator:
         self.agents_params["new_proficiency_level"] = self.context_running.new_proficiency_level
         self.agents_params["new_specific_skill"] = self.context_running.new_specific_skill
 
-        pre_messages = self._build_transition_pre_messages()
-
         return ChatContextOut(
             supervisor_message=supervisor_message,
             params=self.agents_params,
-            pre_messages=pre_messages,
         )
     
     async def _handle_skip(self) -> ChatContextOut:
@@ -522,100 +515,123 @@ class AgentOrquestrator:
             params=self.agents_params,
         )
                 
-    def _build_transition_pre_messages(self) -> list[dict] | None:
+    def _supervisor_deps(self) -> SupervisorDeps:
+        """
+        Monta as dependências do supervisor a partir do que já foi apurado
+        neste turno (R7). As instructions dinâmicas do agente decidem o que
+        usar; campos vazios simplesmente não contribuem.
+        """
         tracker = self.agents_params.get("progress_tracker") or {}
-        if not tracker.get("changed_skill"):
-            return None
 
-        used = [
-            (msg.get("params") or {}).get("transition_phrase")
-            for msg in self.context_in.message_history
-            if msg.get("user_type") == "bot"
-            and (msg.get("params") or {}).get("transition_phrase")
-        ]
-        phrase = pick_transition_phrase(used)
-
-        logger.info(
-            f"Transicao de topico: {tracker.get('previous_skill')} -> "
-            f"{tracker.get('new_skill')} | frase sorteada: {phrase}"
+        return SupervisorDeps(
+            topico_atual=self.context_running.new_specific_skill or "",
+            ponto_forte_anterior=self._extract_previous_strength(),
+            trocou_de_topico=bool(tracker.get("changed_skill")),
         )
 
-        return [
-            {
-                "text": phrase,
-                "params": {
-                    "transition_phrase": phrase,
-                    "previous_skill": tracker.get("previous_skill"),
-                    "new_skill": tracker.get("new_skill"),
-                },
-            }
-        ]
+    def _extract_previous_strength(self) -> str | None:
+        """
+        Extrai um ponto concreto coberto pela resposta anterior, a partir das
+        justificativas do avaliador.
 
-    async def _generate_supervisor_response(
-        self, new_question: str, flow_type: str = "normal"
-    ) -> str:
-        """Gera a resposta do supervisor para retornar ao usuário"""
-        if flow_type == "followup":
-            flow_context = (
-                "### Contexto do Fluxo\n"
-                "A resposta anterior do usuário estava INCOMPLETA.\n"
-                "NÃO resuma nem repita o que o usuário disse.\n"
-                "Vá direto ao ponto: sinalize brevemente (em meia frase) que a resposta "
-                "precisava de mais profundidade, e então faça a nova pergunta.\n"
-            )
-        else:
-            levels = ["lembrar", "compreender", "aplicar", "analisar", "avaliar", "criar"]
-            current_idx = levels.index(current_level.lower()) if current_level.lower() in levels else -1
+        `justificativas_habilidades` vem no formato
+        "{habilidade:nivel, justificativa:texto}; {...}" e
+        `adequacao_habilidades` no formato "habilidade:adequacao, ...".
+        Escolhe a justificativa da habilidade mais bem pontuada e devolve a
+        primeira frase dela.
+        """
+        evaluator = self.agents_params.get("skill_evaluator") or {}
+        justifications = evaluator.get("justificativas_habilidades") or ""
+        if not justifications:
+            return None
 
-            alt_question_set = []
-            for delta in [1, -1]:
-                alt_idx = current_idx + delta
-                if 0 <= alt_idx < len(levels):
-                    candidate = self._get_question_set(
-                        levels[alt_idx], current_skill, rubrics=self.context_in.rubrics
-                    )
-                    if candidate:
-                        alt_question_set = candidate
-                        logger.info(
-                            f"Skip: usando perguntas do nível {levels[alt_idx]} "
-                            f"para evitar repetição (proficiency mantido: {current_level})"
-                        )
-                        break
+        scores: dict[str, int] = {}
+        for pair in (evaluator.get("adequacao_habilidades") or "").split(","):
+            skill, _, value = pair.partition(":")
+            try:
+                scores[skill.strip()] = int(value.strip())
+            except ValueError:
+                continue
 
-            self.current_question_set = alt_question_set or self._get_question_set(
-                current_level, current_skill, rubrics=self.context_in.rubrics
-            )
+        entries: list[tuple[str, str]] = []
+        for block in re.findall(r"\{(.*?)\}", justifications, flags=re.DOTALL):
+            skill, _, rest = block.partition(":")
+            _, _, justification = rest.partition("justificativa:")
+            skill = skill.strip()
+            justification = justification.strip()
+            if skill and justification and justification != "Sem justificativa disponível.":
+                entries.append((skill, justification))
 
-            self.agents_params["progress_tracker"] = {
-                "should_continue": True,
-                "previous_skill": current_skill,
-                "new_skill": current_skill,
-                "changed_skill": False,
-            }
+        if not entries:
+            return None
 
-        new_question = await self._generate_question()
-        supervisor_message = await self._generate_supervisor_response(new_question)
+        skill, justification = max(entries, key=lambda item: scores.get(item[0], 0))
 
-        self.agents_params["flow"] = {"type": "skip"}
+        first_sentence = re.split(r"(?<=[.!?])\s", justification.strip())[0].strip()
+        if len(first_sentence) > 220:
+            first_sentence = first_sentence[:217].rstrip() + "..."
+
+        logger.info(f"Ponto forte anterior ({skill}): {first_sentence}")
+
+        return first_sentence or None
+
+    async def _generate_supervisor_response(self, new_question: str) -> str:
+        turn_context = {
+            "message_history": self.context_in.get_message_history(HISTORY_WINDOW_TURN),
+            "current_subject": self.context_running.new_specific_skill,
+            "generated_question": new_question,
+            "deps": self._supervisor_deps(),
+        }
+
+        result = await self.agent_supervisor.run_turn(turn_context)
+        self.agents_params["supervisor"] = {"action": "turn"}
+        return result.output.message
+
+    def _count_consecutive_deviations(self) -> int:
+        """Conta desvios de tópico consecutivos no fim do histórico."""
+        count = 0
+        for msg in reversed(self.context_in.message_history):
+            if msg.get("user_type") != "bot":
+                continue
+            flow = (msg.get("params") or {}).get("flow") or {}
+            if flow.get("type") != "off_topic":
+                break
+            count += 1
+
+        return count
+
+    async def _handle_off_topic(self) -> ChatContextOut:
+        """
+        Candidato mudou de assunto: recentra na pergunta que já estava na mesa,
+        sem gerar pergunta nova.
+        """
+        deviation_count = self._count_consecutive_deviations() + 1
+        logger.info(f"Desvio de tópico detectado (consecutivos: {deviation_count})")
+
+        off_topic_context = {
+            "message_history": self.context_in.get_message_history(
+                HISTORY_WINDOW_OFF_TOPIC
+            ),
+            "generated_question": self.context_in.ai_message,
+            "deviation_count": deviation_count,
+            "deps": self._supervisor_deps(),
+        }
+
+        result = await self.agent_supervisor.run_off_topic(off_topic_context)
+
+        self.agents_params["supervisor"] = {"action": "off_topic"}
+        self.agents_params["flow"] = {
+            "type": "off_topic",
+            "reason": "topic_deviation",
+            "deviation_count": deviation_count,
+        }
         self.agents_params["new_proficiency_level"] = self.context_running.new_proficiency_level
         self.agents_params["new_specific_skill"] = self.context_running.new_specific_skill
 
         return ChatContextOut(
-            supervisor_message=supervisor_message,
+            supervisor_message=result.output.message,
             params=self.agents_params,
         )
-
-    async def _generate_supervisor_response(self, new_question: str) -> str:
-        end_context = {
-            "message_history": self.context_in.get_message_history(4),
-            "current_subject": self.context_in.current_specific_skill,
-            "generated_question": new_question,
-            "flow_context": "",
-        }
-
-        result = await self.agent_supervisor.run_end(end_context)
-        self.agents_params["supervisor"] = {"action": "end"}
-        return result.output.message
 
     def _get_invalid_history(self) -> str:
         """
@@ -673,7 +689,9 @@ class AgentOrquestrator:
         logger.info("Validando mensagem do usuário")
         result = await self.agent_message_validator.run_validation(
             {
-                "message_history":self.context_in.get_message_history(),
+                "message_history": self.context_in.get_message_history(
+                    HISTORY_WINDOW_VALIDATION
+                ),
                 "user_message": user_message,
                 "question": self.context_in.ai_message,
                 "invalid_history": self._get_invalid_history(),
@@ -686,6 +704,7 @@ class AgentOrquestrator:
         self.agents_params["message_validator"] = {
             "is_valid": output.is_valid,
             "reason": output.reason,
+            "is_off_topic": output.is_off_topic,
             "explicacao": output.explicacao,
             "missing_parts": output.missing_parts,
             "followup_instruction": (
@@ -861,7 +880,6 @@ class AgentOrquestrator:
         logger.info("Gerando nova pergunta para o usuário")
 
         generation_context = {
-            "message_history": self.context_in.get_message_history(),
             "current_specific_skill": self.context_running.new_specific_skill,
             "current_proficiency_level": self.context_running.new_proficiency_level,
             "current_question_set": self.current_question_set,
@@ -913,11 +931,11 @@ class AgentOrquestrator:
 
         return question
 
-    async def _handle_invalid_message(self, validation) -> ChatContextOut:
+    async def _handle_invalid_message(self) -> ChatContextOut:
         """
         Trata mensagens inválidas:
-        1. Regenera a pergunta
-        2. Supervisor adiciona feedback de validação
+        1. Regenera a pergunta a partir do parecer do validador
+        2. Supervisor pede a reformulação e entrega a pergunta regenerada
         """
         logger.info("Tratando mensagem inválida")
 
@@ -925,9 +943,9 @@ class AgentOrquestrator:
 
         # FIX #3: passar regenerated_question ao supervisor
         retype_context = {
-            "message_history": self.context_in.get_message_history(),
-            "validation_feedback": validation,
+            "message_history": self.context_in.get_message_history(HISTORY_WINDOW_RETYPE),
             "regenerated_question": regenerated_question,
+            "deps": self._supervisor_deps(),
         }
 
         result = await self.agent_supervisor.run_retype(retype_context)
@@ -990,7 +1008,8 @@ class AgentOrquestrator:
         logger.info("Encerrando o chat")
 
         supervisor_context = {
-            "message_history": self.context_in.get_message_history(),
+            "user_name": self.user_name,
+            "skill_name": self.context_in.session.skill.name,
         }
 
         result = await self.agent_supervisor.run_close(supervisor_context)

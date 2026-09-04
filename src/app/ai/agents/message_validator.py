@@ -1,11 +1,12 @@
+from typing import List, Literal, Optional
+
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
+
 from app.logger import get_log
 from app.observability import track_helicone
 
 logger = get_log(__name__)
-
-from typing import List, Optional, Literal
 
 
 class FollowupInstruction(BaseModel):
@@ -64,19 +65,30 @@ class AgentMessageValidatorResponse(BaseModel):
         Deve ser preenchido apenas quando reason = 'incomplete'.
         """,
     )
+    is_off_topic: bool = Field(
+        default=False,
+        description="""
+        True apenas quando a mensagem trata de outro assunto que não a
+        pergunta feita (desvio de tópico). Respostas vagas, curtas ou
+        superficiais mas dentro do assunto NÃO são desvio.
+        """,
+    )
 
 
 class AgentMessageValidator:
     def __init__(
         self,
-        runner: Agent,
+        model: str,
         system_prompt: str,
         validation_prompt: str,
     ):
-        self.runner = runner
         self.system_prompt = system_prompt
         self.validation_prompt = validation_prompt
-        self.runner.system_prompt = system_prompt
+        self.runner = Agent(
+            model=model,
+            output_type=AgentMessageValidatorResponse,
+            instructions=system_prompt,
+        )
 
     @track_helicone(agent_type="message_validator")
     async def run_validation(self, validation_context: dict):

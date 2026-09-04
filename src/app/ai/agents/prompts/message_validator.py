@@ -36,18 +36,28 @@ system_prompt = """
     - Não penalize falta de experiência prática.
     - Se houver múltiplas partes na pergunta, avalie cada uma.
 
+    DESVIO DE TÓPICO (campo separado):
+
+    - is_off_topic = true APENAS quando a mensagem trata de outro assunto
+    que não a pergunta feita (o candidato mudou de assunto, comentou algo
+    alheio à avaliação ou fez outra pergunta).
+    - Resposta vaga, curta ou superficial MAS dentro do assunto:
+    is_off_topic = false.
+    - is_off_topic é independente de "reason".
+
     SAÍDA OBRIGATÓRIA (JSON):
 
     {
     "is_valid": boolean,
-    "reason": "valid" | "incomplete" | "invalid",
+    "reason": "valid" | "incomplete" | "invalid" | "skip",
     "explicacao": string | null,
     "missing_parts": string[],
     "followup_instruction": {
         "intent": "aprofundar" | "clarificar" | "completar_resposta" | "pedir_exemplo",
         "focus": string,
         "constraints": string[]
-    } | null
+    } | null,
+    "is_off_topic": boolean
     }
 
     REGRAS DE CONSISTÊNCIA:
